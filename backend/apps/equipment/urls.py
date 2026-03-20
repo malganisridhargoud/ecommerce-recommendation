@@ -1,0 +1,36 @@
+from django.urls import path
+from .views import (
+    EquipmentListView,
+    EquipmentDetailView,
+    EquipmentCreateView,
+    VendorEquipmentListView,
+    EquipmentUpdateDeleteView,
+    EquipmentReviewListCreateView,
+    VendorReviewListView,
+    BuyerReviewListView,
+    WishlistListCreateView,
+    WishlistDeleteView,
+    CartListCreateView,
+    CartItemDetailView,
+    VendorSeedProductsView,
+    VendorReviewReplyView,
+    ReviewCommentListCreateView,
+)
+
+urlpatterns = [
+    path("", EquipmentListView.as_view(), name="equipment-list"),
+    path("<int:pk>/", EquipmentDetailView.as_view(), name="equipment-detail"),
+    path("create/", EquipmentCreateView.as_view(), name="equipment-create"),
+    path("mine/", VendorEquipmentListView.as_view(), name="vendor-equipment"),
+    path("reviews/mine/", VendorReviewListView.as_view(), name="vendor-review-list"),
+    path("reviews/my/", BuyerReviewListView.as_view(), name="buyer-review-list"),
+    path("seed-sample/", VendorSeedProductsView.as_view(), name="vendor-seed-products"),
+    path("reviews/<int:review_id>/reply/", VendorReviewReplyView.as_view(), name="vendor-review-reply"),
+    path("reviews/<int:review_id>/comments/", ReviewCommentListCreateView.as_view(), name="review-comments"),
+    path("wishlist/", WishlistListCreateView.as_view(), name="wishlist-list-create"),
+    path("wishlist/<int:equipment_id>/", WishlistDeleteView.as_view(), name="wishlist-delete"),
+    path("cart/", CartListCreateView.as_view(), name="cart-list-create"),
+    path("cart/<int:item_id>/", CartItemDetailView.as_view(), name="cart-item-detail"),
+    path("<int:equipment_id>/reviews/", EquipmentReviewListCreateView.as_view(), name="equipment-reviews"),
+    path("<int:pk>/manage/", EquipmentUpdateDeleteView.as_view(), name="equipment-manage"),
+]
