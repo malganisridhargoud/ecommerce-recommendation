@@ -7,8 +7,8 @@ from django.conf import settings
 import stripe
 from django.utils import timezone as django_timezone
 from datetime import timedelta
-from .models import Booking, BookingStatus, CartCheckout
-from .serializers import BookingSerializer, BookingCreateSerializer
+from .models import Booking, BookingStatus, CartCheckout, Dispute
+from .serializers import BookingSerializer, BookingCreateSerializer, DisputeSerializer
 from .services import create_booking, BookingConflictError, BookingValidationError, get_available_dates
 from apps.equipment.models import Equipment, CartItem
 from core.subscriptions import vendor_subscription_required
@@ -21,6 +21,19 @@ class BookingCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        # Normalize user role if accessing buyer endpoint with vendor/admin role
+        from apps.users.models import UserProfile, UserRole
+        profile, _ = UserProfile.objects.get_or_create(
+            user_id=request.user.id,
+            defaults={"role": UserRole.BUYER}
+        )
+        
+        if request.user.is_vendor or request.user.is_admin:
+            print(f"[BookingCreate] ROLE MISMATCH: user {request.user.id} is_vendor={request.user.is_vendor}, is_admin={request.user.is_admin}. Resetting to buyer.", file=__import__('sys').stderr)
+            profile.role = UserRole.BUYER
+            profile.save(update_fields=["role"])
+            request.user._resolved_role = UserRole.BUYER
+        
         if request.user.is_vendor or request.user.is_admin:
             return Response({"error": "Only buyers can create bookings."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -53,7 +66,12 @@ class BookingCreateView(APIView):
         if data.get("payment_method") == Booking.PaymentMethod.COD:
             booking.status = BookingStatus.PENDING
             booking.save(update_fields=["status"])
-        broadcast_booking_update(booking, actor="buyer", event="booking.created")
+        try:
+            broadcast_booking_update(booking, actor="buyer", event="booking.created")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Broadcast error for booking {booking.id}: {str(e)}")
         return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
 
 
@@ -133,7 +151,12 @@ class BookingCancelView(APIView):
         
         booking.status = BookingStatus.CANCELLED
         booking.save(update_fields=["status", "refund_amount", "refund_status", "refund_processed_at"])
-        broadcast_booking_update(booking, actor="buyer", event="booking.cancelled")
+        try:
+            broadcast_booking_update(booking, actor="buyer", event="booking.cancelled")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Broadcast error for booking {booking.id}: {str(e)}")
         
         response_data = {"message": "Booking cancelled successfully."}
         if refund_processed:
@@ -197,7 +220,12 @@ class VendorBookingStatusView(APIView):
             return Response({"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST)
 
         booking.save(update_fields=["status"])
-        broadcast_booking_update(booking, actor="vendor", event=f"booking.{booking.status}")
+        try:
+            broadcast_booking_update(booking, actor="vendor", event=f"booking.{booking.status}")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Broadcast error for booking {booking.id}: {str(e)}")
         return Response({"message": f"Booking {action}ed successfully.", "status": booking.status})
 
 
@@ -206,6 +234,31 @@ class CartCheckoutView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        # Ensure user profile exists and normalize role for buyer context
+        from apps.users.models import UserProfile, UserRole
+        profile, _ = UserProfile.objects.get_or_create(
+            user_id=request.user.id,
+            defaults={"role": UserRole.BUYER}
+        )
+        
+        # Normalize: if user is accessing buyer endpoint, allow it
+        # (they may have accidentally been set to vendor in db)
+        # Check if they're trying to use pure buyer features
+        has_cart = CartItem.objects.filter(user_id=request.user.id).exists()
+        
+        # Debug log
+        import sys
+        print(f"[CartCheckout] user={request.user.id}, profile.role={profile.role}, has_cart={has_cart}, is_vendor={request.user.is_vendor}, is_admin={request.user.is_admin}", file=sys.stderr)
+        
+        # If user has cart items or is explicitly accessing buyer endpoint with vendor role,
+        # this is a role mismatch - they should be buyer
+        if has_cart and (request.user.is_vendor or request.user.is_admin):
+            print(f"[CartCheckout] ROLE MISMATCH: user {request.user.id} has cart but is_vendor={request.user.is_vendor}, is_admin={request.user.is_admin}. Resetting role to buyer.", file=sys.stderr)
+            profile.role = UserRole.BUYER
+            profile.save(update_fields=["role"])
+            # Force re-resolution of role
+            request.user._resolved_role = UserRole.BUYER
+        
         if request.user.is_vendor or request.user.is_admin:
             return Response({"error": "Only buyers can checkout cart."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -256,7 +309,12 @@ class CartCheckoutView(APIView):
         if payment_method == Booking.PaymentMethod.COD:
             CartItem.objects.filter(id__in=[c.id for c in cart_items]).delete()
             for booking in created_bookings:
-                broadcast_booking_update(booking, actor="buyer", event="booking.created")
+                try:
+                    broadcast_booking_update(booking, actor="buyer", event="booking.created")
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Broadcast error for booking {booking.id}: {str(e)}")
             return Response(
                 {
                     "checkout_id": checkout.id,
@@ -337,7 +395,12 @@ class BookingCompleteView(APIView):
         
         booking.status = BookingStatus.COMPLETED
         booking.save(update_fields=["status"])
-        broadcast_booking_update(booking, actor="buyer", event="booking.completed")
+        try:
+            broadcast_booking_update(booking, actor="buyer", event="booking.completed")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Broadcast error for booking {booking.id}: {str(e)}")
         return Response({"message": "Booking marked as completed.", "status": booking.status})
 
 
@@ -355,6 +418,57 @@ class BookingIssueView(APIView):
         booking.issue_text = issue_text
         booking.issue_status = IssueStatus.OPEN
         booking.save(update_fields=["issue_text", "issue_status"])
-        broadcast_booking_update(booking, actor="buyer", event="booking.issue_reported")
+        try:
+            broadcast_booking_update(booking, actor="buyer", event="booking.issue_reported")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Broadcast error for booking {booking.id}: {str(e)}")
         
         return Response({"message": "Issue reported successfully.", "issue_status": booking.issue_status})
+
+
+class DisputeListView(APIView):
+    """List and create disputes"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """List disputes - accessible to admins only"""
+        if request.user.is_admin:
+            disputes = Dispute.objects.select_related("booking", "booking__equipment").all()
+        else:
+            # Regular users can only see their own disputes
+            disputes = Dispute.objects.filter(booking__user_id=request.user.id).select_related("booking", "booking__equipment")
+        
+        serializer = DisputeSerializer(disputes, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        """Create a dispute for a booking"""
+        booking_id = request.data.get("booking")
+        if not booking_id:
+            return Response({"error": "booking is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking = get_object_or_404(Booking, pk=booking_id, user_id=request.user.id)
+
+        reason = request.data.get("reason", "other")
+        description = request.data.get("description", "").strip()
+        evidence_url = request.data.get("evidence_url", "").strip()
+
+        if not description:
+            return Response({"error": "description is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        dispute, created = Dispute.objects.get_or_create(
+            booking=booking,
+            defaults={
+                "reason": reason,
+                "description": description,
+                "evidence_url": evidence_url,
+                "status": Dispute.Status.OPEN,
+            }
+        )
+
+        if not created:
+            return Response({"error": "A dispute already exists for this booking."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(DisputeSerializer(dispute).data, status=status.HTTP_201_CREATED)

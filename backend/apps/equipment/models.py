@@ -1,6 +1,13 @@
 from django.db import models
 
 
+class KYCStatus(models.TextChoices):
+    NOT_STARTED = "not_started", "Not Started"
+    PENDING = "pending", "Pending Verification"
+    VERIFIED = "verified", "Verified"
+    REJECTED = "rejected", "Rejected"
+
+
 class Vendor(models.Model):
     user_id = models.CharField(max_length=255, unique=True)  # Clerk user ID
     company_name = models.CharField(max_length=255, default="My Company")
@@ -8,6 +15,9 @@ class Vendor(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     subscription_active = models.BooleanField(default=False)
     subscription_id = models.CharField(max_length=255, blank=True)
+    kyc_status = models.CharField(
+        max_length=20, choices=KYCStatus.choices, default=KYCStatus.NOT_STARTED
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -27,9 +37,22 @@ class EquipmentCategory(models.TextChoices):
     OTHER = "other", "Other"
 
 
+class ModerationStatus(models.TextChoices):
+    PENDING = "pending", "Pending Approval"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+
+
 class Equipment(models.Model):
     vendor = models.ForeignKey(
         Vendor, on_delete=models.CASCADE, related_name="equipment_list"
+    )
+    subscription = models.ForeignKey(
+        "subscriptions.VendorSubscription",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="equipment"
     )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -46,6 +69,10 @@ class Equipment(models.Model):
     views_count = models.PositiveIntegerField(default=0)
     booking_count = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    moderation_status = models.CharField(
+        max_length=20, choices=ModerationStatus.choices, default=ModerationStatus.PENDING
+    )
+    moderation_notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -139,3 +166,4 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f"CartItem {self.user_id} - {self.equipment_id}"
+

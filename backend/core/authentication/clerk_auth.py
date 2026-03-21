@@ -97,8 +97,18 @@ class SimpleClerkUser:
             from apps.users.models import UserProfile
 
             profile = UserProfile.objects.filter(user_id=self.id).only("role").first()
-            self._resolved_role = profile.role if profile else fallback
-        except Exception:
+            if profile:
+                self._resolved_role = profile.role
+            else:
+                # First time accessing - create profile with buyer role
+                profile, created = UserProfile.objects.get_or_create(
+                    user_id=self.id,
+                    defaults={"role": "buyer"}
+                )
+                self._resolved_role = profile.role if not created else "buyer"
+        except Exception as e:
+            import sys
+            print(f"[Auth] Error resolving role for {self.id}: {e}", file=sys.stderr)
             self._resolved_role = fallback
         return self._resolved_role
 

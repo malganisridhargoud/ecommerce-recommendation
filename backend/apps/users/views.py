@@ -114,10 +114,14 @@ class UserMeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        profile, _ = UserProfile.objects.get_or_create(
+        profile, created = UserProfile.objects.get_or_create(
             user_id=request.user.id,
             defaults={"role": UserRole.BUYER},
         )
+        # AUTO-FIX: if somehow the role is vendor/admin but user is accessing buyer dashboard,
+        # and they no longer have vendor/admin rights, reset to buyer
+        if created:
+            print(f"[UserMe] Created new profile for {request.user.id} with role={profile.role}", flush=True)
         return Response(UserProfileSerializer(profile).data)
 
     def patch(self, request):
@@ -141,7 +145,63 @@ class UserMeView(APIView):
         return Response(serializer.data)
 
 
+class UserRoleSyncView(APIView):
+    """Debug/restore endpoint: sync user role and ensure buyer access works."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """Force sync user role to ensure buyer functionality works."""
+        target_role = request.data.get("role", "buyer")
+        
+        # Only allow users to set their own role to buyer, or sync to buyer
+        if target_role not in ["buyer", "vendor", "admin"]:
+            return Response({"error": "Invalid role."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Admins can change any user's role; others can only reset to buyer
+        if target_role != "buyer" and request.user.role != "admin":
+            return Response(
+                {"error": "Only admins can set non-buyer roles."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        
+        profile, _ = UserProfile.objects.get_or_create(
+            user_id=request.user.id,
+            defaults={"role": UserRole.BUYER}
+        )
+        
+        old_role = profile.role
+        profile.role = target_role
+        profile.save(update_fields=["role"])
+        
+        # Clear cached role
+        request.user._resolved_role = target_role
+        
+        return Response({
+            "success": True,
+            "user_id": request.user.id,
+            "old_role": old_role,
+            "new_role": target_role,
+            "message": f"Role updated from {old_role} to {target_role}."
+        })
+
+    def get(self, request):
+        """Get current user role info."""
+        profile, _ = UserProfile.objects.get_or_create(
+            user_id=request.user.id,
+            defaults={"role": UserRole.BUYER}
+        )
+        
+        return Response({
+            "user_id": request.user.id,
+            "profile_role": profile.role,
+            "user_is_vendor": request.user.is_vendor,
+            "user_is_admin": request.user.is_admin,
+            "user_role_property": request.user.role,
+        })
+
+
 class UpdateRoleView(APIView):
+
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -200,9 +260,7 @@ class AddressDetailView(RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         if serializer.validated_data.get("is_default"):
-            BuyerAddress.objects.filter(user_id=self.request.user.id, is_default=True).exclude(
-                id=self.get_object().id
-            ).update(is_default=False)
+            BuyerAddress.objects.filter(user_id=self.request.user.id, is_default=True).exclude(id=self.get_object().id).update(is_default=False)
         serializer.save()
 
 

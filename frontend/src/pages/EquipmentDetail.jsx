@@ -73,7 +73,7 @@ export default function EquipmentDetail() {
     async function fetchRole() {
       if (!isSignedIn) { setRole(""); return; }
       try { const me = await usersAPI.me(); setRole(me.role || "buyer"); }
-      catch { setRole("buyer"); }
+      catch { setRole(""); }  // Disable button if role fetch fails
     }
     fetchRole();
   }, [isSignedIn]);
@@ -112,11 +112,15 @@ export default function EquipmentDetail() {
 
   const startChat = async () => {
     if (!isSignedIn) return toast.error("Please sign in first");
+    if (!role) return toast.error("Loading user information...");
+    if (role === "vendor") {
+      return toast.error("Vendors cannot start conversations with themselves.");
+    }
     try {
       const thread = await chatAPI.createThread(item.id);
-      navigate(`/buyer?tab=messages&thread=${thread.id}`);
+      navigate(`/buyer?tab=chat&thread=${thread.id}`);
     } catch (err) {
-      toast.error("Failed to start chat.");
+      toast.error(err.message || "Failed to start chat.");
     }
   };
 
@@ -374,7 +378,11 @@ export default function EquipmentDetail() {
 
                 <button
                   onClick={startChat}
-                  className="flex items-center justify-center gap-2 bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e8e8ed] py-3.5 rounded-2xl font-semibold transition-colors"
+                  disabled={!isSignedIn || !role || role === "vendor"}
+                  className={`flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold transition-colors ${!isSignedIn || !role || role === "vendor"
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    : "bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e8e8ed]"
+                  }`}
                 >
                   <FiMessageSquare className="w-5 h-5" />
                   <span className="text-sm">Contact</span>

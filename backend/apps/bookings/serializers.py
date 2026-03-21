@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Booking
+from .models import Booking, Dispute
 from apps.equipment.serializers import EquipmentSerializer
 
 
@@ -31,3 +31,16 @@ class BookingCreateSerializer(serializers.Serializer):
         if attrs["end_date"] < attrs["start_date"]:
             raise serializers.ValidationError({"end_date": "End date must be on or after start date."})
         return attrs
+
+
+class DisputeSerializer(serializers.ModelSerializer):
+    booking_detail = BookingSerializer(source="booking", read_only=True)
+
+    class Meta:
+        model = Dispute
+        fields = [
+            "id", "booking", "booking_detail", "reason", "description",
+            "evidence_url", "status", "admin_response", "resolution",
+            "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "status", "admin_response", "resolution", "created_at", "updated_at"]

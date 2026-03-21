@@ -1,6 +1,6 @@
 from decimal import Decimal
 from django.core.management.base import BaseCommand
-from apps.equipment.models import Equipment, EquipmentCategory, Vendor
+from apps.equipment.models import Equipment, EquipmentCategory, Vendor, ModerationStatus
 
 
 SEED_VENDOR_USER_ID = "seed-vendor"
@@ -158,7 +158,11 @@ class Command(BaseCommand):
             equipment, was_created = Equipment.objects.update_or_create(
                 vendor=vendor,
                 name=payload["name"],
-                defaults=payload,
+                defaults={
+                    **payload,
+                    "moderation_status": ModerationStatus.APPROVED,
+                    "is_active": True,
+                },
             )
             if was_created:
                 created += 1

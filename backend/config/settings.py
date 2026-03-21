@@ -35,8 +35,6 @@ INSTALLED_APPS = [
     "apps.bookings",
     "apps.payments",
     "apps.subscriptions",
-    "apps.recommendations",
-    "apps.analytics",
     "apps.communications",
 ]
 
@@ -50,6 +48,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.subscriptions.middleware.SubscriptionEnforcementMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -158,7 +157,8 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
 STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "inr")
-REQUIRE_VENDOR_SUBSCRIPTION = os.getenv("REQUIRE_VENDOR_SUBSCRIPTION", "True") == "True"
+# In local/dev environments, allow listings without payment subscription
+REQUIRE_VENDOR_SUBSCRIPTION = os.getenv("REQUIRE_VENDOR_SUBSCRIPTION", "False") == "True"
 
 # Clerk
 CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL", "")

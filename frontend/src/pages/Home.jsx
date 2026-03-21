@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
 import EquipmentCard from "../components/equipment/EquipmentCard";
+import TapRentAssistant from "../components/common/TapRentAssistant";
 import { equipmentAPI } from "../api/axiosConfig";
 import { useAppPreferences } from "../context/AppPreferencesContext";
-import { FiChevronRight, FiFilter, FiSearch, FiShield, FiTruck, FiClock, FiStar, FiUserCheck } from "react-icons/fi";
+import { FiChevronRight, FiFilter, FiSearch, FiShield, FiTruck, FiClock, FiStar, FiUserCheck, FiHelpCircle } from "react-icons/fi";
 
 const categories = [
   { value: "", label: "All Gear" },
@@ -179,6 +180,8 @@ export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
 
+  const wsRef = useRef(null);
+
   useEffect(() => {
     setCategory(queryCategory);
     setSearch(querySearch);
@@ -223,6 +226,69 @@ export default function Home() {
     return () => { mounted = false; };
   }, [category, debouncedSearch, sort, maxPrice, selectedLocation]);
 
+  // WebSocket for real-time equipment updates
+  useEffect(() => {
+    const connectWebSocket = () => {
+      const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/equipment/updates/`;
+      wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        console.log('Connected to equipment updates WebSocket');
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'equipment_update') {
+            // Refresh the marketplace data when equipment is updated
+            async function refreshData() {
+              try {
+                const [main, newSet, popularSet, featuredSet] = await Promise.all([
+                  equipmentAPI.list({
+                    category: category || undefined,
+                    search: debouncedSearch || undefined,
+                    sort,
+                    max_price: maxPrice,
+                    location: selectedLocation || undefined,
+                  }),
+                  equipmentAPI.list({ section: "new", location: selectedLocation || undefined }),
+                  equipmentAPI.list({ section: "popular", sort: "popular", location: selectedLocation || undefined }),
+                  equipmentAPI.list({ section: "featured", location: selectedLocation || undefined }),
+                ]);
+                setListings(Array.isArray(main) ? main : main?.results || []);
+                setNewProducts((Array.isArray(newSet) ? newSet : newSet?.results || []).slice(0, 4));
+                setPopularProducts((Array.isArray(popularSet) ? popularSet : popularSet?.results || []).slice(0, 4));
+                setFeaturedProducts((Array.isArray(featuredSet) ? featuredSet : featuredSet?.results || []).slice(0, 4));
+              } catch (err) {
+                console.error('Failed to refresh equipment data:', err);
+              }
+            }
+            refreshData();
+          }
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err);
+        }
+      };
+
+      wsRef.current.onclose = () => {
+        console.log('Equipment updates WebSocket closed, reconnecting...');
+        setTimeout(connectWebSocket, 5000); // Reconnect after 5 seconds
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('Equipment updates WebSocket error:', error);
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [category, debouncedSearch, sort, maxPrice, selectedLocation]);
+
   const hasItems = useMemo(() => listings.length > 0, [listings]);
   const isFiltering = category || debouncedSearch || sort !== "popular" || maxPrice !== 50000 || selectedLocation;
 
@@ -231,47 +297,75 @@ export default function Home() {
 
       {/* ── Hero ── */}
       {!isFiltering && (
-        <section className="relative overflow-hidden bg-black text-center pt-28 pb-36 md:pt-36 md:pb-48">
+        <section className="relative overflow-hidden bg-[#09090b] text-center pt-28 pb-40 md:pt-40 md:pb-60">
           <div className="absolute inset-0 z-0">
-            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/60 to-black z-10"></div>
-            <img
-              src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=2000&auto=format&fit=crop"
-              alt="Professional Equipment"
-              className="w-full h-full object-cover opacity-60 scale-110"
-            />
+             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,#3b82f6,transparent_70%)] opacity-30"></div>
+             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
           </div>
 
-          <div className="relative z-20 max-w-[900px] mx-auto px-4 sm:px-6 flex flex-col items-center">
-            <h1 className="text-5xl md:text-7xl lg:text-[84px] font-bold tracking-tight text-white mb-6 leading-[1.05]">
-              Pro gear.<br />Rent it here.
+          <div className="relative z-20 max-w-[1000px] mx-auto px-6 flex flex-col items-center">
+            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-md mb-10 animate-fade-in shadow-2xl">
+               <FiShield className="w-4 h-4 text-[#d4af37]" />
+               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#d4af37]">Certified Fleet Infrastructure</span>
+            </div>
+            
+            <h1 className="text-6xl md:text-8xl lg:text-[104px] font-black tracking-tighter text-white mb-8 leading-[0.85] animate-slide-up">
+              Pro gear.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#d4af37] via-white to-white/40">Synchronized.</span>
             </h1>
-            <p className="text-lg md:text-xl text-white/70 font-medium max-w-xl mb-14 leading-relaxed">
-              The world's most advanced equipment rental marketplace.
-              Find exactly what you need, exactly when you need it.
+            
+            <p className="text-lg md:text-xl text-white/50 font-bold max-w-xl mb-16 leading-relaxed animate-slide-up" style={{ animationDelay: '100ms' }}>
+              The gold standard for professional equipment rental. 
+              Find exactly what you need, with industry-grade precision.
             </p>
 
-            {/* Search Bar */}
-            <div className="w-full max-w-2xl bg-white/10 backdrop-blur-2xl border border-white/20 p-1.5 rounded-2xl flex flex-col md:flex-row gap-1.5 shadow-2xl">
-              <div className="relative flex-1">
-                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 w-5 h-5" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="What are you looking for?"
-                  className="w-full h-14 bg-transparent border-none text-white text-[15px] pl-12 pr-4 focus:ring-0 placeholder:text-white/40 font-medium"
-                />
+            {/* Glass Search Interface */}
+            <div className="w-full max-w-3xl animate-slide-up shadow-[0_40px_100px_rgba(0,0,0,0.4)] rounded-[32px] overflow-hidden border border-white/10 bg-white/5 backdrop-blur-3xl" style={{ animationDelay: '200ms' }}>
+              <div className="p-2 flex flex-col md:flex-row gap-2">
+                <div className="relative flex-[1.5] group">
+                  <FiSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-white/30 w-5 h-5 group-focus-within:text-[#d4af37] transition-colors" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search the fleet..."
+                    className="w-full h-16 bg-transparent border-none text-white text-[15px] pl-14 pr-6 focus:ring-0 placeholder:text-white/20 font-black tracking-wider transition-all"
+                  />
+                </div>
+                <div className="hidden md:block w-[1px] h-10 bg-white/10 self-center"></div>
+                <div className="flex-1 flex items-center relative pr-4">
+                   <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full h-16 bg-transparent border-none text-white/60 text-[13px] font-black uppercase tracking-widest appearance-none focus:ring-0 px-6 cursor-pointer"
+                  >
+                    {categories.map(c => (
+                      <option key={c.value} value={c.value} className="bg-[#18181b] text-white py-4">{c.label}</option>
+                    ))}
+                  </select>
+                  <FiChevronRight className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 pointer-events-none" />
+                </div>
+                <button 
+                  onClick={() => setSearch(search)} 
+                  className="md:w-16 h-16 rounded-[24px] bg-[#d4af37] text-black flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-xl"
+                >
+                  <FiSearch className="w-6 h-6 stroke-[3px]" />
+                </button>
               </div>
-              <div className="hidden md:block w-[1px] h-8 bg-white/15 self-center"></div>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="h-14 bg-transparent border-none text-white/80 text-[15px] md:w-48 appearance-none focus:ring-0 px-4 font-medium"
-              >
-                {categories.map(c => (
-                  <option key={c.value} value={c.value} className="text-black">{c.label}</option>
-                ))}
-              </select>
+            </div>
+
+            {/* Sub-Search Metrics */}
+            <div className="mt-12 flex flex-wrap justify-center gap-10 opacity-30">
+               {[
+                 { l: "Realtime Sync", v: "100%" },
+                 { l: "Stripe Powered", v: "Verified" },
+                 { l: "Fleet Assets", v: "24.5k" },
+               ].map(m => (
+                 <div key={m.l} className="text-center">
+                    <div className="text-[10px] font-black uppercase tracking-widest mb-1">{m.l}</div>
+                    <div className="text-lg font-black">{m.v}</div>
+                 </div>
+               ))}
             </div>
           </div>
         </section>

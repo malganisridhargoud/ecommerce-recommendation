@@ -84,3 +84,37 @@ class CartCheckout(models.Model):
     class Meta:
         db_table = "cart_checkouts"
         ordering = ["-created_at"]
+
+
+class Dispute(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        IN_PROGRESS = "in_progress", "In Progress"
+        RESOLVED = "resolved", "Resolved"
+        CLOSED = "closed", "Closed"
+
+    class Reason(models.TextChoices):
+        NOT_AS_DESCRIBED = "not_as_described", "Equipment not as described"
+        DEFECTIVE = "defective", "Equipment defective"
+        LATE_DELIVERY = "late_delivery", "Late delivery"
+        CANCELLATION = "cancellation", "Cancellation issue"
+        OTHER = "other", "Other"
+
+    booking = models.ForeignKey(
+        Booking, on_delete=models.CASCADE, related_name="disputes"
+    )
+    reason = models.CharField(max_length=50, choices=Reason.choices, default=Reason.OTHER)
+    description = models.TextField()
+    evidence_url = models.URLField(blank=True, default="")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    admin_response = models.TextField(blank=True, default="")
+    resolution = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Dispute #{self.id} - {self.booking.id} ({self.status})"
+
+    class Meta:
+        db_table = "disputes"
+        ordering = ["-created_at"]

@@ -8,7 +8,9 @@ from django.db.models import F
 from django.db import models
 from django.core.cache import cache
 from django.core.signals import Signal
-from .models import Equipment, Vendor, Review, ReviewComment, WishlistItem, CartItem
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from .models import Equipment, Vendor, Review, ReviewComment, WishlistItem, CartItem, ModerationStatus
 from .serializers import (
     EquipmentSerializer,
     EquipmentCreateSerializer,
@@ -33,13 +35,28 @@ def equipment_list_cache_key(view, request):
 equipment_cache_invalidated = Signal()
 
 
+def broadcast_equipment_update(action, equipment_id, data=None):
+    """Broadcast equipment update to WebSocket group."""
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "equipment_updates",
+        {
+            "type": "equipment_update",
+            "action": action,
+            "equipment_id": equipment_id,
+            "data": data,
+        }
+    )
+
+
 class EquipmentListView(generics.ListAPIView):
     """Public endpoint: list all active equipment."""
     serializer_class = EquipmentSerializer
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        qs = Equipment.objects.filter(is_active=True).select_related("vendor")
+        from .models import ModerationStatus
+        qs = Equipment.objects.filter(is_active=True, moderation_status=ModerationStatus.APPROVED).select_related("vendor")
         if vendor_subscription_required():
             qs = qs.filter(vendor__subscription_active=True)
         category = self.request.query_params.get("category")
@@ -108,7 +125,8 @@ class EquipmentDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        from .models import ModerationStatus
+        qs = Equipment.objects.filter(is_active=True, moderation_status=ModerationStatus.APPROVED).select_related("vendor")
         if vendor_subscription_required():
             qs = qs.filter(vendor__subscription_active=True)
         return qs
@@ -160,9 +178,11 @@ class EquipmentCreateView(generics.CreateAPIView):
             defaults={"company_name": "New Vendor"},
         )
         ensure_vendor_can_list(vendor)
-        serializer.save(vendor=vendor)
+        instance = serializer.save(vendor=vendor)
         # Invalidate cache after creating new equipment
         invalidate_equipment_cache()
+        # Broadcast equipment creation
+        broadcast_equipment_update("created", instance.id, EquipmentSerializer(instance).data)
 
 
 class VendorEquipmentListView(generics.ListAPIView):
@@ -189,12 +209,17 @@ class EquipmentUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
         next_is_active = serializer.validated_data.get("is_active", instance.is_active)
         if next_is_active:
             ensure_vendor_can_list(instance.vendor, action="publish equipment")
-        serializer.save()
+        instance = serializer.save()
         invalidate_equipment_cache()
+        # Broadcast equipment update
+        broadcast_equipment_update("updated", instance.id, EquipmentSerializer(instance).data)
 
     def perform_destroy(self, instance):
+        equipment_id = instance.id
         instance.delete()
         invalidate_equipment_cache()
+        # Broadcast equipment deletion
+        broadcast_equipment_update("deleted", equipment_id)
 
 
 class EquipmentReviewListCreateView(APIView):
@@ -279,10 +304,24 @@ class WishlistListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        # Normalize role if needed
+        from apps.users.models import UserProfile, UserRole
+        profile, _ = UserProfile.objects.get_or_create(
+            user_id=request.user.id,
+            defaults={"role": UserRole.BUYER}
+        )
+        
         qs = WishlistItem.objects.filter(user_id=request.user.id).select_related("equipment", "equipment__vendor")
         return Response(WishlistItemSerializer(qs, many=True, context={"request": request}).data)
 
     def post(self, request):
+        # Normalize role if needed
+        from apps.users.models import UserProfile, UserRole
+        profile, _ = UserProfile.objects.get_or_create(
+            user_id=request.user.id,
+            defaults={"role": UserRole.BUYER}
+        )
+        
         equipment_id = request.data.get("equipment_id")
         equipment = get_object_or_404(Equipment, pk=equipment_id, is_active=True)
         item, created = WishlistItem.objects.get_or_create(user_id=request.user.id, equipment=equipment)
@@ -302,10 +341,24 @@ class CartListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        # Normalize role if needed
+        from apps.users.models import UserProfile, UserRole
+        profile, _ = UserProfile.objects.get_or_create(
+            user_id=request.user.id,
+            defaults={"role": UserRole.BUYER}
+        )
+        
         items = CartItem.objects.filter(user_id=request.user.id).select_related("equipment", "equipment__vendor")
         return Response(CartItemSerializer(items, many=True, context={"request": request}).data)
 
     def post(self, request):
+        # Normalize role if needed
+        from apps.users.models import UserProfile, UserRole
+        profile, _ = UserProfile.objects.get_or_create(
+            user_id=request.user.id,
+            defaults={"role": UserRole.BUYER}
+        )
+        
         equipment = get_object_or_404(Equipment, pk=request.data.get("equipment_id"), is_active=True)
         serializer = CartItemSerializer(data={
             "equipment": equipment.id,
@@ -419,7 +472,11 @@ class VendorSeedProductsView(APIView):
             _, was_created = Equipment.objects.get_or_create(
                 vendor=vendor,
                 name=payload["name"],
-                defaults=payload,
+                defaults={
+                    **payload,
+                    "moderation_status": ModerationStatus.APPROVED,
+                    "is_active": True,
+                },
             )
             if was_created:
                 created += 1

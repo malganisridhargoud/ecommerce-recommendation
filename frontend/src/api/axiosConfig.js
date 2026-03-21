@@ -133,15 +133,42 @@ export const chatAPI = {
   createThread: (equipmentId) => apiClient.post("/chat/threads/", { equipment_id: equipmentId }),
   messages: (threadId) => apiClient.get(`/chat/threads/${threadId}/messages/`),
   sendMessage: (threadId, data) => apiClient.post(`/chat/threads/${threadId}/messages/`, data),
+  faq: () => apiClient.get("/chat/faq/"),
+  askAssistant: (question) => apiClient.post("/chat/assistant/", { question }),
 };
 
 // ── Payments ────────────────────────────────────────────────────────────────
 export const paymentsAPI = {
   createIntent: (bookingId) => apiClient.post(`/payments/intent/${bookingId}/`),
   confirmIntent: (paymentIntentId) => apiClient.post("/payments/confirm/", { payment_intent_id: paymentIntentId }),
-  subscribe: (data) => apiClient.post("/payments/subscribe/", data),
-  createCheckout: () => apiClient.post("/payments/create-checkout/"),
+  createCheckout: () => apiClient.post("/payments/checkout/"),
   confirmSubscriptionSession: (sessionId) => apiClient.post("/payments/confirm-subscription-session/", { session_id: sessionId }),
+  payouts: () => apiClient.get("/payments/payouts/"),
+  bankAccount: () => apiClient.get("/payments/bank/"),
+  schedulePayout: () => apiClient.post("/payments/payouts/schedule/"),
+};
+export const subscriptionAPI = {
+  tiers: () => apiClient.get("/subscriptions/tiers/"),
+  me: () => apiClient.get("/subscriptions/me/"),
+  upgrade: (data) => apiClient.post("/subscriptions/upgrade/", data),
+  usage: () => apiClient.post("/subscriptions/usage/"),
+  cancel: () => apiClient.post("/subscriptions/cancel/"),
+};
+export const controlAPI = {
+  equipment: (params) => apiClient.get("/control/equipment/", { params }),
+  moderate: (id, data) => apiClient.post(`/control/equipment/${id}/moderate/`, data),
+  vendors: (params) => apiClient.get("/control/vendors/", { params }),
+  kycApprove: (id, data) => apiClient.post(`/control/vendors/kyc/${id}/approve/`, data),
+  kycSubmit: (data) => apiClient.post("/control/vendors/kyc/submit/", data),
+  userAction: (data) => apiClient.post("/control/users/action/", data),
+};
+export const disputeAPI = {
+  list: () => apiClient.get("/control/disputes/"),
+  create: (data) => apiClient.post("/control/disputes/", data),
+};
+export const supportAPI = {
+  tickets: () => apiClient.get("/control/support/tickets/"),
+  createTicket: (data) => apiClient.post("/control/support/tickets/", data),
 };
 
 // ── Recommendations ──────────────────────────────────────────────────────────
@@ -167,6 +194,7 @@ export const usersAPI = {
   me: () => apiClient.get("/users/me/"),
   updateMe: (data) => apiClient.patch("/users/me/", data),
   setRole: (data) => apiClient.post("/users/role/", data),
+  roleSync: (role = "buyer") => apiClient.post("/users/role/sync/", { role }),
   addresses: () => apiClient.get("/users/addresses/"),
   createAddress: (data) => apiClient.post("/users/addresses/", data),
   updateAddress: (id, data) => apiClient.patch(`/users/addresses/${id}/`, data),

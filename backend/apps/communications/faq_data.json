@@ -1,0 +1,52 @@
+[
+  {
+    "id": "getting_started",
+    "question": "How do I get started with TapRent?",
+    "answer": "Getting started is easy! First, create your account as a buyer or vendor. Buyers can browse and rent equipment, while vendors can list their gear. Complete your profile and start exploring our marketplace of professional equipment."
+  },
+  {
+    "id": "how_renting_works",
+    "question": "How does equipment rental work?",
+    "answer": "Browse our marketplace, select the equipment you need, choose your rental dates, and book securely through our platform. Pay with Stripe, pick up your gear from the vendor, and return it when you're done. We handle all the logistics and insurance."
+  },
+  {
+    "id": "payment_security",
+    "question": "Is my payment secure?",
+    "answer": "Absolutely! We use Stripe for all payments, which is the same secure payment processor used by companies like Amazon and Uber. Your payment information is never stored on our servers and all transactions are encrypted."
+  },
+  {
+    "id": "vendor_requirements",
+    "question": "What do I need to become a vendor?",
+    "answer": "To become a vendor, you need: 1) Professional equipment worth listing, 2) Valid insurance coverage, 3) A business account or subscription plan, 4) Complete KYC verification. Contact our support team to get started with the vendor onboarding process."
+  },
+  {
+    "id": "booking_cancellation",
+    "question": "Can I cancel my booking?",
+    "answer": "Yes, you can cancel bookings up to 24 hours before the rental start date for a full refund. Cancellations within 24 hours may incur a cancellation fee. Check our terms for detailed cancellation policies."
+  },
+  {
+    "id": "equipment_insurance",
+    "question": "Is the equipment insured?",
+    "answer": "All equipment listed on TapRent comes with mandatory insurance coverage. We partner with leading insurance providers to ensure your rentals are protected against damage, theft, and other incidents during the rental period."
+  },
+  {
+    "id": "delivery_options",
+    "question": "Do you offer delivery?",
+    "answer": "Most vendors offer delivery within their local area. You can arrange delivery during the booking process. For long-distance rentals, we recommend coordinating directly with the vendor for shipping arrangements."
+  },
+  {
+    "id": "disputes",
+    "question": "What if there's an issue with my rental?",
+    "answer": "If you encounter any issues, contact the vendor directly through our messaging system first. If the issue can't be resolved, you can file a dispute through your dashboard. Our support team will mediate and help find a fair resolution."
+  },
+  {
+    "id": "subscription_plans",
+    "question": "What are the subscription plans for vendors?",
+    "answer": "We offer flexible subscription plans: Basic (up to 5 listings), Pro (up to 25 listings), and Enterprise (unlimited listings). Each plan includes different features like priority support, analytics, and marketing tools. Visit our pricing page for current rates."
+  },
+  {
+    "id": "verification",
+    "question": "How do I verify my account?",
+    "answer": "Account verification ensures trust in our community. Submit your ID, business documents (for vendors), and complete any required background checks. Verification typically takes 1-3 business days."
+  }
+]

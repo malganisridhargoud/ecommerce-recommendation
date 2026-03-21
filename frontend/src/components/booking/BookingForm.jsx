@@ -1,14 +1,17 @@
 import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "@clerk/clerk-react";
+import { useNavigate } from "react-router-dom";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import toast from "react-hot-toast";
 import { bookingsAPI, paymentsAPI, usersAPI } from "../../api/axiosConfig";
 import { FiCalendar, FiMapPin, FiCreditCard, FiCheckCircle } from "react-icons/fi";
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+const stripeKey = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "";
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 function StripePayForm({ clientSecret, onPaid }) {
+  const navigate = useNavigate();
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
@@ -27,8 +30,9 @@ function StripePayForm({ clientSecret, onPaid }) {
         toast.error(error.message || "Payment failed");
       } else {
         await paymentsAPI.confirmIntent(paymentIntent.id);
-        toast.success("Payment successful!");
-        onPaid();
+        toast.success("Order completed! Redirecting to your orders...");
+        if (onPaid) onPaid();
+        setTimeout(() => navigate("/buyer?tab=orders"), 1500);
       }
     } catch (err) {
       toast.error(err.message || "Payment confirmation failed.");
@@ -291,7 +295,12 @@ export default function BookingForm({ equipment, onBooked }) {
       )}
 
       {/* Stripe Payment Integration */}
-      {clientSecret && paymentMethod === "stripe" && (
+      {paymentMethod === "stripe" && !stripeKey && (
+        <div className="p-4 bg-red-50 rounded-xl border border-red-200 text-red-700 text-sm mb-4">
+          Stripe is not configured. Please set <code>REACT_APP_STRIPE_PUBLISHABLE_KEY</code> in your environment.
+        </div>
+      )}
+      {clientSecret && paymentMethod === "stripe" && stripePromise && (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
           <StripePayForm
             clientSecret={clientSecret}

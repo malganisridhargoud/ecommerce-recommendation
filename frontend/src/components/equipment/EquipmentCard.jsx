@@ -18,14 +18,8 @@ export default function EquipmentCard({ equipment }) {
   const rating = equipment.average_rating || 0;
   const reviewCount = equipment.review_count || 0;
 
-  return (
-    <Link
-      to={`/equipment/${equipment.id}`}
-      className="group relative flex flex-col bg-white rounded-2xl overflow-hidden transition-all duration-500 ease-out will-change-transform hover:-translate-y-1"
-      style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
-      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.1)'}
-      onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.04)'}
-    >
+  const cardInner = (
+    <>
       {/* Image */}
       <div className="relative aspect-square w-full overflow-hidden bg-[#f5f5f7]">
         {equipment.image_url ? (
@@ -64,7 +58,7 @@ export default function EquipmentCard({ equipment }) {
           ) : (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-xl text-[10px] font-semibold tracking-wider text-orange-600 shadow-sm uppercase">
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-              Coming Soon
+              Unavailable
             </span>
           )}
         </div>
@@ -111,6 +105,34 @@ export default function EquipmentCard({ equipment }) {
           </div>
         </div>
       </div>
-    </Link>
+    </>
+  );
+
+  return (
+    <div
+      className={`group relative flex flex-col bg-white rounded-2xl overflow-hidden transition-all duration-500 ease-out will-change-transform ${available ? 'hover:-translate-y-1 cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
+      style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.1)'}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.04)'}
+    >
+      {/* Unavailable Overlay */}
+      {!available && (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-20 flex items-center justify-center">
+          <div className="bg-white/90 backdrop-blur-xl rounded-2xl px-6 py-3 shadow-lg">
+            <span className="text-sm font-semibold text-gray-800 uppercase tracking-wider">Unavailable</span>
+          </div>
+        </div>
+      )}
+
+      {available ? (
+        <Link to={`/equipment/${equipment.id}`} className="contents">
+          {cardInner}
+        </Link>
+      ) : (
+        <div className="contents">
+          {cardInner}
+        </div>
+      )}
+    </div>
   );
 }
