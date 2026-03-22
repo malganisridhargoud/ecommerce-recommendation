@@ -303,3 +303,11 @@ class AdminLoginView(APIView):
 
         return Response({"error": "Invalid admin credentials."}, status=status.HTTP_401_UNAUTHORIZED)
 
+
+class UserListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # For admin, list all users. Since Clerk, return mock or empty.
+        return Response([])
+

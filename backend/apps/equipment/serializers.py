@@ -6,8 +6,8 @@ from .models import Equipment, Vendor, Review, ReviewComment, WishlistItem, Cart
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = ["id", "user_id", "company_name", "email", "phone", "subscription_active", "created_at"]
-        read_only_fields = ["id", "user_id", "subscription_active", "created_at"]
+        fields = ["id", "user_id", "company_name", "email", "phone", "subscription_active", "kyc_status", "created_at"]
+        read_only_fields = ["id", "user_id", "subscription_active", "kyc_status", "created_at"]
 
 
 class EquipmentSerializer(serializers.ModelSerializer):

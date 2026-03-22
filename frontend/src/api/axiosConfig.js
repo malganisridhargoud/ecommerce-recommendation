@@ -145,6 +145,8 @@ export const paymentsAPI = {
   confirmSubscriptionSession: (sessionId) => apiClient.post("/payments/confirm-subscription-session/", { session_id: sessionId }),
   payouts: () => apiClient.get("/payments/payouts/"),
   bankAccount: () => apiClient.get("/payments/bank/"),
+  saveBankAccount: (data) => apiClient.post("/payments/bank/", data),
+  updateBankAccount: (data) => apiClient.put("/payments/bank/", data),
   schedulePayout: () => apiClient.post("/payments/payouts/schedule/"),
 };
 export const subscriptionAPI = {
@@ -200,6 +202,7 @@ export const usersAPI = {
   updateAddress: (id, data) => apiClient.patch(`/users/addresses/${id}/`, data),
   deleteAddress: (id) => apiClient.delete(`/users/addresses/${id}/`),
   adminLogin: (data) => apiClient.post("/users/admin/login/", data),
+  list: () => apiClient.get("/control/vendors/"),
 };
 
 export default apiClient;

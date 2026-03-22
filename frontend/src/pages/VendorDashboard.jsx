@@ -493,6 +493,10 @@ function StatusTag({ status }) {
 
 function PayoutsView({ payouts, bankAccount, onRefresh }) {
   const [sched, setSched] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
+  const [stripeId, setStripeId] = useState(bankAccount?.stripe_connect_account_id || "");
+  const [saving, setSaving] = useState(false);
+
   const isVerified = bankAccount?.verification_status === "verified";
   const pendingAmt = payouts.reduce((a, p) => p.status === "pending" ? a + Number(p.net_amount) : a, 0);
 
@@ -501,6 +505,26 @@ function PayoutsView({ payouts, bankAccount, onRefresh }) {
     try { await paymentsAPI.schedulePayout(); toast.success("Payout initiated."); onRefresh(); }
     catch (e) { toast.error(e.message || "Failed."); }
     finally { setSched(false); }
+  };
+
+  const handleSetup = async (e) => {
+    e.preventDefault();
+    if (!stripeId) return toast.error("Account ID required.");
+    setSaving(true);
+    try {
+      if (bankAccount?.id) {
+        await paymentsAPI.updateBankAccount({ stripe_connect_account_id: stripeId });
+      } else {
+        await paymentsAPI.saveBankAccount({ stripe_connect_account_id: stripeId });
+      }
+      toast.success("Stripe account connected.");
+      setShowSetup(false);
+      onRefresh();
+    } catch (err) {
+      toast.error(err.message || "Failed to connect.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -512,10 +536,30 @@ function PayoutsView({ payouts, bankAccount, onRefresh }) {
           <div className="sec-sub">Settlements · Payouts · Connected accounts</div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          {!isVerified && <button className="btn btn-ghost">Setup Stripe Connect</button>}
+          {!bankAccount?.stripe_connect_account_id && <button className="btn btn-ghost" onClick={() => setShowSetup(!showSetup)}>Setup Stripe Connect</button>}
+          {bankAccount?.stripe_connect_account_id && !isVerified && <button className="btn btn-ghost" onClick={() => setShowSetup(!showSetup)}>Update Account</button>}
           {isVerified && <button className="btn btn-coral" onClick={go} disabled={sched}><FiSend size={11}/>{sched?"Processing…":"Transfer Funds"}</button>}
         </div>
       </div>
+
+      {showSetup && (
+        <div style={{ padding: "20px 24px", background: "var(--surface2)", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ fontWeight: 500, marginBottom: 12 }}>Connect Stripe Account</div>
+          <form onSubmit={handleSetup} style={{ display: "flex", gap: 12 }}>
+            <input 
+              className="vd-input" 
+              placeholder="e.g. acct_100..." 
+              value={stripeId} 
+              onChange={e => setStripeId(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button type="submit" className="btn btn-dark" disabled={saving}>
+              {saving ? "Saving..." : "Connect"}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => setShowSetup(false)}>Cancel</button>
+          </form>
+        </div>
+      )}
 
       <div style={{background:"var(--surface)"}}>
         <div className="payout-kv-grid">

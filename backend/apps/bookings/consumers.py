@@ -19,15 +19,12 @@ class BookingEventsConsumer(AsyncWebsocketConsumer):
             await self.close(code=4403)
             return
 
+        # Accept connection based on URL role — don't gate on the user's
+        # *database* role because users can switch roles and a vendor may
+        # also browse as a buyer.
         if role == "vendor":
-            if not getattr(user, "is_vendor", False):
-                await self.close(code=4403)
-                return
             self.group_name = vendor_booking_group(user_id)
         elif role == "buyer":
-            if getattr(user, "is_vendor", False) or getattr(user, "is_admin", False):
-                await self.close(code=4403)
-                return
             self.group_name = buyer_booking_group(user_id)
         else:
             await self.close(code=4404)

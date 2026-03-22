@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ChatMessage, ChatThread
+from .models import ChatMessage, ChatThread, SupportTicket
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):
@@ -36,3 +36,9 @@ class ChatThreadSerializer(serializers.ModelSerializer):
         if not msg:
             return None
         return ChatMessageSerializer(msg).data
+
+
+class SupportTicketSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportTicket
+        fields = '__all__'

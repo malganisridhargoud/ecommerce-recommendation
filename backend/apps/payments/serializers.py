@@ -13,6 +13,7 @@ class VendorBankAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = VendorBankAccount
         fields = '__all__'
+        read_only_fields = ['vendor', 'verification_status', 'verification_requirements']
 
 
 class PayoutSerializer(serializers.ModelSerializer):

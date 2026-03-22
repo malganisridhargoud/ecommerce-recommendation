@@ -1,24 +1,15 @@
-# Cleanup TODO - Equipment Rental SaaS
+# KYC Implementation TODO
 
-## Step 1: Delete temp/debug files ✓ (backend)
-- check_django.py
-- load_error.txt  
-- seed_tiers.py
+## Plan Progress
+- [x] 1. Create `backend/apps/control/__init__.py`
+- [x] 2. Create `backend/apps/control/serializers.py`
+- [x] 3. Create `backend/apps/control/views.py` (KYCSubmitView, KYCDetailView, KYCApproveView, VendorListView)
+- [x] 4. Create `backend/apps/control/urls.py`
+- [x] 5. Edit `backend/config/urls.py` (include control.urls)
+- [x] 6. Edit `backend/apps/equipment/serializers.py` (add kyc_status to VendorSerializer)
+- [ ] 7. Run `makemigrations && migrate` if needed
+- [ ] 8. Test VendorDashboard KYC submit (no 404)
+- [ ] 9. Test AdminDashboard KYC approve → vendor status updates
+- [x] Task Complete: attempt_completion
 
-## Step 2: Delete bloat directories ✓ (backend)
-- rm -rf apps/recommendations/
-- rm -rf apps/analytics/
-- rm -rf apps/admin_controls/
-
-## Step 3: Frontend deletes ✓
-- src/pages/AdminDashboard_tail.txt
-- src/api/recommendationApi.js
-- rm -rf src/components/charts/
-- src/lib/realtime.js
-- src/pages/BlogPostPage.jsx
-
-## Step 4: Backend config updates
-
-## Step 5: Frontend route/API updates
-
-## Step 6: Test servers
+**Current Step: 8/9 - Backend ready, test KYC flow**

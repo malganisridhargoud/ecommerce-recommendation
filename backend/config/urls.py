@@ -1,7 +1,6 @@
 from django.http import JsonResponse
 from django.urls import path, include
 from django.contrib import admin
-from apps.bookings.views import DisputeListView
 
 
 def health_check(_request):
@@ -17,6 +16,7 @@ urlpatterns = [
     path("api/vendors/", include("apps.vendors.urls")),
     path("api/subscriptions/", include("apps.subscriptions.urls")),
     path("api/chat/", include("apps.communications.urls")),
-    # Control endpoints
-    path("api/control/disputes/", DisputeListView.as_view(), name="control-disputes"),
+    path("api/control/", include("apps.control.urls")),
+    path("api/analytics/", include("apps.analytics.urls")),
+    path("api/recommendations/", include("apps.recommendations.urls")),
 ]

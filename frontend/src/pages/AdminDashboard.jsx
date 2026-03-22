@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import toast from "react-hot-toast";
-import { analyticsAPI, recommendationsAPI, controlAPI, usersAPI, disputeAPI, supportAPI } from "../api/axiosConfig";
+import { analyticsAPI, recommendationsAPI, controlAPI, usersAPI, disputeAPI, supportAPI, paymentsAPI } from "../api/axiosConfig";
 import {
   FiShield, FiCheckCircle, FiXCircle, FiTrendingUp, FiUsers, FiBox,
   FiActivity, FiLogOut, FiRefreshCw, FiZap, FiAlertCircle,
@@ -23,6 +23,7 @@ const TABS = [
   { id: "disputes",   label: "Disputes",   icon: <FiAlertCircle size={13} /> },
   { id: "tickets",    label: "Help Desk",  icon: <FiMessageSquare size={13} /> },
   { id: "users",      label: "User Ctrl",  icon: <FiUsers size={13} /> },
+  { id: "payouts",    label: "Payouts",    icon: <FiTrendingUp size={13} /> },
 ];
 
 /* ─────────────────────────────────────────────────────────────
@@ -688,6 +689,7 @@ export default function AdminDashboard() {
   const [usersList, setUsersList] = useState([]);
   const [disputes, setDisputes] = useState([]);
   const [tickets, setTickets] = useState([]);
+  const [payouts, setPayouts] = useState([]);
   const [processingId, setProcessingId] = useState(null);
 
   const loadOverview = useCallback(async () => {
@@ -712,12 +714,13 @@ export default function AdminDashboard() {
   const loadUsers      = useCallback(async () => { try { const d = await usersAPI.list(); setUsersList(Array.isArray(d) ? d : d?.results || []); } catch {} }, []);
   const loadDisputes   = useCallback(async () => { try { const d = await disputeAPI.list(); setDisputes(Array.isArray(d) ? d : d?.results || []); } catch {} }, []);
   const loadTickets    = useCallback(async () => { try { const d = await supportAPI.tickets(); setTickets(Array.isArray(d) ? d : d?.results || []); } catch {} }, []);
+  const loadPayouts    = useCallback(async () => { try { const d = await paymentsAPI.payouts(); setPayouts(Array.isArray(d) ? d : d?.results || []); } catch {} }, []);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadOverview(), loadModeration(), loadKYC(), loadUsers(), loadDisputes(), loadTickets()]);
+    await Promise.all([loadOverview(), loadModeration(), loadKYC(), loadUsers(), loadDisputes(), loadTickets(), loadPayouts()]);
     setLoading(false);
-  }, [loadOverview, loadModeration, loadKYC, loadUsers, loadDisputes, loadTickets]);
+  }, [loadOverview, loadModeration, loadKYC, loadUsers, loadDisputes, loadTickets, loadPayouts]);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
@@ -1024,10 +1027,10 @@ export default function AdminDashboard() {
                             </td>
                             <td style={{ textAlign: "right" }}>
                               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                                <button className="btn btn-green" style={{ fontSize: 9, padding: "7px 14px" }} onClick={() => handleModerate(item.id, "approved")} disabled={processingId === item.id}>
+                                <button className="btn btn-green" style={{ fontSize: 9, padding: "7px 14px" }} onClick={() => handleModerate(item.id, "approve")} disabled={processingId === item.id}>
                                   <FiCheckCircle size={10} /> Approve
                                 </button>
-                                <button className="btn btn-red" style={{ fontSize: 9, padding: "7px 14px" }} onClick={() => handleModerate(item.id, "rejected")} disabled={processingId === item.id}>
+                                <button className="btn btn-red" style={{ fontSize: 9, padding: "7px 14px" }} onClick={() => handleModerate(item.id, "reject")} disabled={processingId === item.id}>
                                   <FiXCircle size={10} /> Reject
                                 </button>
                               </div>
@@ -1136,6 +1139,54 @@ export default function AdminDashboard() {
                           </tr>
                         ))
                       }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ── PAYOUTS ── */}
+            {tab === "payouts" && (
+              <div className="section">
+                <div className="section-header">
+                  <div>
+                    <h2 className="section-title">Vendor Payouts</h2>
+                    <p className="section-desc">Review and manage all vendor payout settlements.</p>
+                  </div>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Vendor</th>
+                        <th>Period</th>
+                        <th>Gross</th>
+                        <th>Commission</th>
+                        <th>Net</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: "right" }}>Bookings</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payouts.length === 0 ? (
+                        <tr><td colSpan="7" style={{ textAlign: "center", padding: 48, color: "var(--ink4)" }}>No payouts recorded yet.</td></tr>
+                      ) : payouts.map(p => (
+                        <tr key={p.id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{p.vendor_company || `Vendor #${p.vendor}`}</div>
+                          </td>
+                          <td>{p.period_start} → {p.period_end}</td>
+                          <td>{fmt(p.amount)}</td>
+                          <td style={{ color: "var(--ink3)" }}>{fmt(p.commission_amount)}</td>
+                          <td style={{ fontWeight: 600 }}>{fmt(p.net_amount)}</td>
+                          <td>
+                            <span className={`tag ${p.status === "completed" ? "success-chip" : p.status === "pending" ? "pending-chip" : "std-chip"}`}>
+                              {(p.status || "pending").toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>{p.booking_count}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

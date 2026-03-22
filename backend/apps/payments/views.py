@@ -1,14 +1,16 @@
 import stripe
+from decimal import Decimal
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils import timezone
+from django.db import models as db_models
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Sum
 from apps.bookings.models import Booking, BookingStatus
 from apps.bookings.notifications import broadcast_booking_update
 from apps.equipment.models import Vendor
@@ -357,14 +359,12 @@ class PayoutListView(APIView):
     permission_classes = [IsVendorOrAdmin]
 
     def get(self, request):
-        vendor = None
-        if request.user.is_vendor:
+        if request.user.is_admin:
+            payouts = Payout.objects.all().order_by('-initiated_at')
+        else:
             vendor = get_object_or_404(Vendor, user_id=request.user.id)
-        
-        payouts = Payout.objects.filter(
-            vendor=vendor if vendor else None
-        ).order_by('-initiated_at')
-        
+            payouts = Payout.objects.filter(vendor=vendor).order_by('-initiated_at')
+
         serializer = PayoutSerializer(payouts, many=True)
         return Response(serializer.data)
 
@@ -409,7 +409,7 @@ class SchedulePayoutView(APIView):
             end_date__lte=end_date,
         )
 
-        total_amount = eligible_bookings.aggregate(total=models.Sum('total_price'))['total'] or 0
+        total_amount = eligible_bookings.aggregate(total=Sum('total_price'))['total'] or Decimal('0')
         commission = total_amount * Decimal('0.10')
         net_amount = total_amount - commission
 
@@ -444,9 +444,31 @@ class VendorBankAccountView(APIView):
     permission_classes = [IsVendorOrAdmin]
 
     def get(self, request):
-        vendor = None
-        if request.user.is_vendor:
-            vendor = get_object_or_404(Vendor, user_id=request.user.id)
-        serializer = VendorBankAccountSerializer(vendor.bank_account)
-        return Response(serializer.data)
+        vendor = get_object_or_404(Vendor, user_id=request.user.id)
+        try:
+            bank_account = vendor.bank_account
+            serializer = VendorBankAccountSerializer(bank_account)
+            return Response(serializer.data)
+        except VendorBankAccount.DoesNotExist:
+            return Response({"detail": "No bank account on file."}, status=status.HTTP_404_NOT_FOUND)
+
+    def post(self, request):
+        vendor = get_object_or_404(Vendor, user_id=request.user.id)
+        serializer = VendorBankAccountSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(vendor=vendor)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request):
+        vendor = get_object_or_404(Vendor, user_id=request.user.id)
+        try:
+            bank_account = vendor.bank_account
+        except VendorBankAccount.DoesNotExist:
+            return Response({"error": "No bank account to update."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = VendorBankAccountSerializer(bank_account, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

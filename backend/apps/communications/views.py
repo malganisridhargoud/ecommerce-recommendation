@@ -4,8 +4,8 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.equipment.models import Equipment
-from .models import ChatMessage, ChatThread
-from .serializers import ChatMessageSerializer, ChatThreadSerializer
+from .models import ChatMessage, ChatThread, SupportTicket
+from .serializers import ChatMessageSerializer, ChatThreadSerializer, SupportTicketSerializer
 import json
 import os
 
@@ -124,3 +124,21 @@ class FAQAssistantView(APIView):
                 "answer": "I couldn't find a specific answer to your question. Here are some popular topics you might find helpful:",
                 "suggestions": [faq["question"] for faq in faq_data[:3]]
             })
+
+
+class SupportTicketListCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        tickets = SupportTicket.objects.all()
+        serializer = SupportTicketSerializer(tickets, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        data = request.data.copy()
+        data['user_id'] = request.user.id
+        serializer = SupportTicketSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

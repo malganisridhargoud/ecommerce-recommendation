@@ -10,6 +10,8 @@ class VendorKYC(models.Model):
     ]
     
     vendor = models.OneToOneField("equipment.Vendor", on_delete=models.CASCADE, related_name='kyc')
+    document_type = models.CharField(max_length=50, blank=True)
+    document_url = models.URLField(max_length=500, blank=True)
     documents_verified = models.BooleanField(default=False)
     id_verified = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
