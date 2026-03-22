@@ -832,7 +832,7 @@ export default function VendorDashboard() {
       if (!cancelled) { toast("Payment recorded — awaiting Stripe…", { icon:"⏳" }); setConfirmingPlan(false); }
     }
     confirm(); return () => { cancelled = true; };
-  }, [location.search, navigate, userId, vendor]);
+  }, [location.search, navigate, userId, vendor, loadDashboard]);
 
   useEffect(() => {
     if (tab !== "products" || !createdListingId || !products.length) return;
