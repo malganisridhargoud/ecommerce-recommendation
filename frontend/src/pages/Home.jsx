@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
 import EquipmentCard from "../components/equipment/EquipmentCard";
-import TapRentAssistant from "../components/common/TapRentAssistant";
 import { equipmentAPI } from "../api/axiosConfig";
 import { useAppPreferences } from "../context/AppPreferencesContext";
-import { FiChevronRight, FiFilter, FiSearch, FiShield, FiTruck, FiClock, FiStar, FiUserCheck, FiHelpCircle } from "react-icons/fi";
+import { FiChevronRight, FiFilter, FiSearch, FiShield, FiTruck, FiClock, FiStar, FiUserCheck } from "react-icons/fi";
 
 const categories = [
   { value: "", label: "All Gear" },
@@ -164,7 +163,7 @@ export default function Home() {
   const location = useLocation();
   const queryCategory = new URLSearchParams(location.search).get("category") || "";
   const querySearch = new URLSearchParams(location.search).get("search") || "";
-  const { location: selectedLocation, t } = useAppPreferences();
+  const { location: selectedLocation } = useAppPreferences();
 
   const [category, setCategory] = useState(queryCategory);
   const [search, setSearch] = useState(querySearch);

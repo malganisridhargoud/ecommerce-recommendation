@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FiArrowRight, FiCheckCircle, FiZap, FiTarget, FiShield, FiTrendingUp } from "react-icons/fi";
+import { FiCheckCircle, FiZap, FiTarget, FiShield, FiTrendingUp } from "react-icons/fi";
 import { subscriptionAPI } from "../api/axiosConfig";
 import toast from "react-hot-toast";
 

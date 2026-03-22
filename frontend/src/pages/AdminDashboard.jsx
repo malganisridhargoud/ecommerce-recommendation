@@ -4,9 +4,9 @@ import toast from "react-hot-toast";
 import { analyticsAPI, recommendationsAPI, controlAPI, usersAPI, disputeAPI, supportAPI, paymentsAPI } from "../api/axiosConfig";
 import {
   FiShield, FiCheckCircle, FiXCircle, FiTrendingUp, FiUsers, FiBox,
-  FiActivity, FiLogOut, FiRefreshCw, FiZap, FiAlertCircle,
-  FiMessageSquare, FiExternalLink, FiChevronRight, FiClock,
-  FiCpu, FiPackage, FiStar, FiAlertTriangle
+  FiActivity, FiLogOut, FiRefreshCw, FiAlertCircle,
+  FiMessageSquare, FiExternalLink, FiChevronRight,
+  FiCpu
 } from "react-icons/fi";
 
 /* ─── helpers ─────────────────────────────────────────────── */

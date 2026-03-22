@@ -11,8 +11,8 @@ import { openBookingSocket } from "../lib/realtime";
 import {
   FiTrendingUp, FiPackage, FiBox, FiMessageSquare, FiSettings,
   FiPlus, FiStar, FiCheckCircle, FiClock, FiSend, FiTruck,
-  FiZap, FiAward, FiShield, FiXCircle, FiActivity,
-  FiAlertTriangle, FiChevronRight, FiArrowUpRight,
+  FiZap, FiShield, FiXCircle,
+  FiChevronRight,
   FiRadio, FiLock
 } from "react-icons/fi";
 
