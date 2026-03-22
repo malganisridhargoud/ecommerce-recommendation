@@ -41,6 +41,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "core.middleware.logging_middleware.RequestLoggingMiddleware",
@@ -72,8 +73,24 @@ TEMPLATES = [
 ]
 
 # Database — MySQL (reads from .env) with SQLite fallback
+import dj_database_url
+
+_db_url = os.getenv("DATABASE_URL")
 _db_name = os.getenv("DB_NAME", "")
-if _db_name:
+_db_ssl = os.getenv("DB_SSL", "False") == "True"
+
+if _db_url:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            _db_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=_db_ssl
+        )
+    }
+    if _db_ssl:
+        DATABASES["default"]["OPTIONS"] = {"ssl": {"ssl_mode": "VERIFY_IDENTITY"}}
+elif _db_name:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
@@ -88,6 +105,8 @@ if _db_name:
             },
         }
     }
+    if _db_ssl:
+         DATABASES["default"]["OPTIONS"]["ssl"] = {"ssl_mode": "VERIFY_IDENTITY"}
 else:
     DATABASES = {
         "default": {

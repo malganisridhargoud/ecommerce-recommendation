@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: taprent-backend
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "daphne -b 0.0.0.0 -p $PORT config.asgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: taprent-db
+          property: connectionString
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: taprent-redis
+          property: connectionString
+
+  - type: redis
+    name: taprent-redis
+    ipAllowList: []
+    plan: free
+
+databases:
+  - name: taprent-db
+    plan: free
