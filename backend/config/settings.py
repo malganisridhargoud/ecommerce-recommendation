@@ -88,14 +88,17 @@ if _db_url:
             ssl_require=_db_ssl
         )
     }
-    # Ensure MySQL-specific options are set if using MySQL
     if "mysql" in DATABASES["default"]["ENGINE"]:
         DATABASES["default"]["OPTIONS"] = {
             "charset": "utf8mb4",
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "connect_timeout": 10,  # 10 seconds timeout for external connections
         }
         if _db_ssl:
-            DATABASES["default"]["OPTIONS"]["ssl"] = {"ca": "/etc/ssl/certs/ca-certificates.crt"}
+             # Flexible SSL support
+            DATABASES["default"]["OPTIONS"]["ssl"] = {"ssl_mode": "REQUIRED"}
+            if os.path.exists("/etc/ssl/certs/ca-certificates.crt"):
+                DATABASES["default"]["OPTIONS"]["ssl"]["ca"] = "/etc/ssl/certs/ca-certificates.crt"
 elif _db_name:
     DATABASES = {
         "default": {
