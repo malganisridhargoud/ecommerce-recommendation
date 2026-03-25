@@ -1,18 +1,21 @@
 import axios from "axios";
 
-function getApiBaseUrl() {
-  const craUrl = process.env.REACT_APP_API_URL || "";
+export function getApiBaseUrl() {
+  let craUrl = process.env.REACT_APP_API_URL || "";
   
-  // If we have a configured URL, use it
-  if (craUrl) return craUrl;
+  // If we have a configured URL, normalize it
+  if (craUrl) {
+    // Add /api if it's missing at the end
+    if (!craUrl.toLowerCase().endsWith("/api") && !craUrl.toLowerCase().endsWith("/api/")) {
+      craUrl = craUrl.endsWith("/") ? `${craUrl}api` : `${craUrl}/api`;
+    }
+    return craUrl;
+  }
 
-  // If we are on a production-like host (Vercel/Custom Domain), 
-  // do NOT fall back to localhost automatically as it will fail anyway.
+  // If we are on a production-like host (Vercel/Custom Domain)
   const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  
   if (!isLocal) {
-    console.warn("[API] REACT_APP_API_URL is NOT set. API calls will likely fail.");
-    return "/api"; // Relative path fallback for same-origin or reverse proxy
+    return "/api"; 
   }
 
   return "http://localhost:8000/api";

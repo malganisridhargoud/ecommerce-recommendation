@@ -1,12 +1,4 @@
-import { getAccessToken } from "../api/axiosConfig";
-
-function getApiBaseUrl() {
-  const craUrl =
-    typeof process !== "undefined" && process.env && process.env.REACT_APP_API_URL
-      ? process.env.REACT_APP_API_URL
-      : "";
-  return craUrl || "http://localhost:8000/api";
-}
+import { getAccessToken, getApiBaseUrl } from "../api/axiosConfig";
 
 export function getWebSocketBaseUrl() {
   const httpUrl = getApiBaseUrl();
