@@ -88,8 +88,14 @@ if _db_url:
             ssl_require=_db_ssl
         )
     }
-    if _db_ssl:
-        DATABASES["default"]["OPTIONS"] = {"ssl": {"ssl_mode": "VERIFY_IDENTITY"}}
+    # Ensure MySQL-specific options are set if using MySQL
+    if "mysql" in DATABASES["default"]["ENGINE"]:
+        DATABASES["default"]["OPTIONS"] = {
+            "charset": "utf8mb4",
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
+        if _db_ssl:
+            DATABASES["default"]["OPTIONS"]["ssl"] = {"ca": "/etc/ssl/certs/ca-certificates.crt"}
 elif _db_name:
     DATABASES = {
         "default": {
