@@ -4,7 +4,14 @@ from django.contrib import admin
 
 
 def health_check(_request):
-    return JsonResponse({"status": "ok"})
+    from django.db import connections
+    from django.db.utils import OperationalError
+    db_conn = connections['default']
+    try:
+        db_conn.cursor()
+    except OperationalError as e:
+        return JsonResponse({"status": "error", "message": f"Database connection failed: {str(e)}"}, status=500)
+    return JsonResponse({"status": "ok", "database": "connected"})
 
 urlpatterns = [
     path("", health_check, name="root-status"),
