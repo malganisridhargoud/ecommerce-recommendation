@@ -280,7 +280,10 @@ export default function Home() {
       wsRef.current.onerror = (error) => {
         console.error('Equipment updates WebSocket error:', error);
       };
-    };
+    } catch (err) {
+      console.error('Failed to initialize WebSocket:', err);
+    }
+  };
 
     connectWebSocket();
 
