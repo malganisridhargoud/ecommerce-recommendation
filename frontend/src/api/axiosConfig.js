@@ -1,28 +1,25 @@
 import axios from "axios";
 
 function getApiBaseUrl() {
-  // CRA uses process.env.REACT_APP_*
-  const craUrl =
-    typeof process !== "undefined" &&
-      process.env &&
-      process.env.REACT_APP_API_URL
-      ? process.env.REACT_APP_API_URL
-      : "";
+  const craUrl = process.env.REACT_APP_API_URL || "";
+  
+  // If we have a configured URL, use it
+  if (craUrl) return craUrl;
 
-  // Vite-style fallback (safe check so CRA build won't crash)
-  let viteUrl = "";
-  try {
-    // eslint-disable-next-line no-undef
-    viteUrl = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env.VITE_API_URL || "" : "";
-  } catch {
-    viteUrl = "";
+  // If we are on a production-like host (Vercel/Custom Domain), 
+  // do NOT fall back to localhost automatically as it will fail anyway.
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  
+  if (!isLocal) {
+    console.warn("[API] REACT_APP_API_URL is NOT set. API calls will likely fail.");
+    return "/api"; // Relative path fallback for same-origin or reverse proxy
   }
 
-  // Hard fallback for local dev to avoid /api 404 on frontend dev server
-  return craUrl || viteUrl || "http://localhost:8000/api";
+  return "http://localhost:8000/api";
 }
 
 const API_URL = getApiBaseUrl();
+console.log(`[API] Base URL: ${API_URL}`);
 
 const apiClient = axios.create({
   baseURL: API_URL,

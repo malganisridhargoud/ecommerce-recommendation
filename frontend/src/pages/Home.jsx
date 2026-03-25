@@ -3,6 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import EquipmentCard from "../components/equipment/EquipmentCard";
 import { equipmentAPI } from "../api/axiosConfig";
 import { useAppPreferences } from "../context/AppPreferencesContext";
+import { getWebSocketBaseUrl } from "../lib/realtime";
 import { FiChevronRight, FiFilter, FiSearch, FiShield, FiTruck, FiClock, FiStar, FiUserCheck } from "react-icons/fi";
 
 const categories = [
@@ -228,8 +229,10 @@ export default function Home() {
   // WebSocket for real-time equipment updates
   useEffect(() => {
     const connectWebSocket = () => {
-      const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/equipment/updates/`;
-      wsRef.current = new WebSocket(wsUrl);
+      try {
+        const wsBase = getWebSocketBaseUrl();
+        const wsUrl = `${wsBase}/ws/equipment/updates/`;
+        wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
         console.log('Connected to equipment updates WebSocket');
@@ -514,12 +517,27 @@ export default function Home() {
               </div>
               <h3 className="text-2xl font-bold text-[#1d1d1f] mb-2">No results found</h3>
               <p className="text-[#86868b] max-w-md text-[15px]">We couldn't find any equipment matching your criteria. Try adjusting your filters or location.</p>
-              <button
-                onClick={() => { setCategory(""); setSearch(""); setMaxPrice(50000); }}
-                className="mt-8 px-6 py-3 bg-[#0071e3] text-white rounded-full font-semibold text-[14px] hover:bg-[#0077ed] transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                Clear Filters
-              </button>
+              <div className="flex flex-wrap gap-4 mt-8 justify-center">
+                <button
+                  onClick={() => { setCategory(""); setSearch(""); setMaxPrice(50000); }}
+                  className="px-6 py-3 bg-[#0071e3] text-white rounded-full font-semibold text-[14px] hover:bg-[#0077ed] transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  Clear Filters
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await equipmentAPI.seedVendorProducts();
+                      window.location.reload();
+                    } catch (err) {
+                      alert("Please log in as a vendor to seed sample products, or ensure your API URL is correct.");
+                    }
+                  }}
+                  className="px-6 py-3 bg-white border border-gray-200 text-[#1d1d1f] rounded-full font-semibold text-[14px] hover:bg-gray-50 transition-all duration-200 shadow-sm"
+                >
+                  Seed Sample Data
+                </button>
+              </div>
             </div>
           )}
 
