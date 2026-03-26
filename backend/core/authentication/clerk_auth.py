@@ -76,6 +76,21 @@ class ClerkAuthentication(authentication.BaseAuthentication):
         return "Bearer"
 
 
+class LenientClerkAuthentication(ClerkAuthentication):
+    """
+    Same as ClerkAuthentication, but treats invalid/stale tokens as anonymous.
+
+    Use only on public endpoints where browsing should still work even if the
+    client accidentally sends an expired/invalid Authorization header.
+    """
+
+    def authenticate(self, request):
+        try:
+            return super().authenticate(request)
+        except exceptions.AuthenticationFailed:
+            return None
+
+
 class SimpleClerkUser:
     """Lightweight user object injected from Clerk JWT payload."""
 

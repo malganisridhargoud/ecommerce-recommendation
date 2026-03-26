@@ -48,6 +48,8 @@ export async function getAccessToken() {
 }
 
 apiClient.interceptors.request.use(async (config) => {
+  if (config.__skipAuth) return config;
+
   // First, check for our custom admin token
   const adminToken = localStorage.getItem("admin_token");
   if (adminToken) {
@@ -71,12 +73,46 @@ apiClient.interceptors.request.use(async (config) => {
 
 apiClient.interceptors.response.use(
   (response) => response.data,
-  (error) => {
-    let message =
-      error.response?.data?.error ||
-      error.response?.data?.detail ||
-      error.message ||
-      "Something went wrong.";
+  async (error) => {
+    const status = error.response?.status;
+    const originalConfig = error.config || {};
+
+    // If we sent credentials but got a 401, we may be holding a stale/invalid token.
+    // Retry once without auth so public endpoints (like marketplace listings) still work.
+    if (
+      status === 401 &&
+      !originalConfig.__isRetry &&
+      originalConfig.headers?.Authorization
+    ) {
+      try {
+        localStorage.removeItem("admin_token");
+      } catch {
+        // ignore storage failures
+      }
+
+      originalConfig.__isRetry = true;
+      originalConfig.__skipAuth = true;
+      try {
+        delete originalConfig.headers.Authorization;
+      } catch {
+        // ignore
+      }
+
+      return apiClient.request(originalConfig);
+    }
+
+    let message;
+
+    // Network/CORS/connection failure (no HTTP response)
+    if (!error.response) {
+      message = `Network error contacting API at ${API_URL}. Is the backend running and CORS configured?`;
+    } else {
+      message =
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        error.message ||
+        "Something went wrong.";
+    }
     if (typeof message !== "string") {
       try { message = JSON.stringify(message); } catch { message = "Something went wrong."; }
     }
