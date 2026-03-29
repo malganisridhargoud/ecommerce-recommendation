@@ -14,6 +14,7 @@ from django.db.models import Q, Sum
 from apps.bookings.models import Booking, BookingStatus
 from apps.bookings.notifications import broadcast_booking_update
 from apps.equipment.models import Vendor
+from apps.equipment.serializers import VendorSerializer
 from .models import Payment, VendorBankAccount, Payout
 from .serializers import (
     PaymentSerializer, VendorBankAccountSerializer, PayoutSerializer
@@ -65,6 +66,14 @@ def get_subscription_billing_item_or_error():
     if item:
         return item, None
     return None, "Vendor subscription is not configured. Set STRIPE_PRICE_ID or define a default subscription plan."
+
+
+def stripe_attr(obj, key, default=None):
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 
 # Existing views...
@@ -224,23 +233,23 @@ class ConfirmVendorSubscriptionSessionView(APIView):
         except stripe.error.StripeError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        if session.get("mode") != "subscription":
+        if stripe_attr(session, "mode") != "subscription":
             return Response({"error": "Checkout session is not a subscription session."}, status=status.HTTP_400_BAD_REQUEST)
 
-        metadata = session.get("metadata") or {}
-        if str(metadata.get("user_id")) != str(request.user.id):
+        metadata = stripe_attr(session, "metadata", {}) or {}
+        if str(stripe_attr(metadata, "user_id")) != str(request.user.id):
             return Response({"error": "This checkout session does not belong to the current vendor."}, status=status.HTTP_403_FORBIDDEN)
 
-        subscription = session.get("subscription")
+        subscription = stripe_attr(session, "subscription")
         subscription_id = None
         subscription_status = "unknown"
 
         if subscription:
-            subscription_id = subscription.get("id") if isinstance(subscription, dict) else str(subscription)
-            subscription_status = subscription.get("status") if isinstance(subscription, dict) else ""
+            subscription_id = stripe_attr(subscription, "id")
+            subscription_status = stripe_attr(subscription, "status", "")
 
-        session_status = session.get("status") or ""
-        payment_status = session.get("payment_status") or ""
+        session_status = stripe_attr(session, "status", "") or ""
+        payment_status = stripe_attr(session, "payment_status", "") or ""
         activation_ready = (session_status == "complete" and payment_status == "paid") or subscription_status in {"active", "trialing"}
 
         if activation_ready:
@@ -251,6 +260,7 @@ class ConfirmVendorSubscriptionSessionView(APIView):
                 "subscription_active": True,
                 "subscription_id": subscription_id,
                 "status": subscription_status or session_status,
+                "vendor": VendorSerializer(vendor).data,
             })
 
         vendor.subscription_id = subscription_id
@@ -259,6 +269,7 @@ class ConfirmVendorSubscriptionSessionView(APIView):
             "subscription_active": False,
             "subscription_id": subscription_id,
             "status": subscription_status or session_status or "pending",
+            "vendor": VendorSerializer(vendor).data,
         })
 
 
@@ -322,7 +333,7 @@ class StripeWebhookView(APIView):
         from apps.equipment.models import Vendor
         vendor = Vendor.objects.filter(subscription_id=subscription["id"]).first()
         if vendor:
-            vendor.subscription_active = subscription["status"] == "active"
+            vendor.subscription_active = subscription["status"] in {"active", "trialing"}
             vendor.save(update_fields=["subscription_active"])
             if not vendor.subscription_active:
                 deactivate_vendor_listings(vendor)
