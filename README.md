@@ -9,8 +9,7 @@ TapRent is a full-stack equipment rental marketplace built with React and Django
 - Realtime: Django Channels with in-memory layers locally and Redis in production
 - Payments: Stripe Payment Intents, Stripe Checkout subscriptions, webhooks, payouts
 - Auth: Clerk JWT validation plus Clerk webhook support
-- Data: SQLite by default, optional MySQL/Postgres-style `DATABASE_URL` support
-- Deployment: Docker, Render, Daphne ASGI
+- Data: SQLite by default
 
 ## Repository Structure
 
