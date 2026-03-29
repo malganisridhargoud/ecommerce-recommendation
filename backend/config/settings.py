@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+
+import dj_database_url
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -12,6 +14,31 @@ DEBUG = os.getenv("DEBUG", "True") == "True"
 def env_list(name, default=""):
     raw = os.getenv(name, default)
     return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def resolve_sqlite_path(raw_path):
+    if not raw_path:
+        return BASE_DIR / "db.sqlite3"
+
+    sqlite_path = Path(raw_path)
+    if not sqlite_path.is_absolute():
+        sqlite_path = BASE_DIR / sqlite_path
+    return sqlite_path
+
+
+def build_mysql_database(name):
+    return {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": name,
+        "USER": os.getenv("DB_USER", "root"),
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "3306"),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+    }
 
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "*" if DEBUG else "")
@@ -69,53 +96,45 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
             ],
         },
-    },
+    }
 ]
 
-# Database — MySQL (reads from .env) with SQLite fallback
-import dj_database_url
-
-_db_url = os.getenv("DATABASE_URL")
-_db_name = os.getenv("DB_NAME", "")
+_db_engine = os.getenv("DB_ENGINE", "sqlite").strip().lower()
+_db_url = os.getenv("DATABASE_URL", "").strip()
+_db_name = os.getenv("DB_NAME", "").strip()
 _db_ssl = os.getenv("DB_SSL", "False") == "True"
+_db_sqlite_path = resolve_sqlite_path(os.getenv("DB_SQLITE_PATH", "").strip())
 
-if _db_url:
+if _db_engine == "sqlite":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": _db_sqlite_path,
+        }
+    }
+elif _db_url:
     DATABASES = {
         "default": dj_database_url.parse(
             _db_url,
             conn_max_age=600,
             conn_health_checks=True,
-            ssl_require=_db_ssl
+            ssl_require=_db_ssl,
         )
     }
     if "mysql" in DATABASES["default"]["ENGINE"]:
         DATABASES["default"]["OPTIONS"] = {
             "charset": "utf8mb4",
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-            "connect_timeout": 10,  # 10 seconds timeout for external connections
+            "connect_timeout": 10,
         }
         if _db_ssl:
-             # Flexible SSL support
             DATABASES["default"]["OPTIONS"]["ssl"] = {"ssl_mode": "REQUIRED"}
             if os.path.exists("/etc/ssl/certs/ca-certificates.crt"):
                 DATABASES["default"]["OPTIONS"]["ssl"]["ca"] = "/etc/ssl/certs/ca-certificates.crt"
 elif _db_name:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": _db_name,
-            "USER": os.getenv("DB_USER", "root"),
-            "PASSWORD": os.getenv("DB_PASSWORD", ""),
-            "HOST": os.getenv("DB_HOST", "localhost"),
-            "PORT": os.getenv("DB_PORT", "3306"),
-            "OPTIONS": {
-                "charset": "utf8mb4",
-                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-            },
-        }
-    }
+    DATABASES = {"default": build_mysql_database(_db_name)}
     if _db_ssl:
-         DATABASES["default"]["OPTIONS"]["ssl"] = {"ssl_mode": "VERIFY_IDENTITY"}
+        DATABASES["default"]["OPTIONS"]["ssl"] = {"ssl_mode": "VERIFY_IDENTITY"}
 else:
     DATABASES = {
         "default": {
@@ -205,7 +224,7 @@ if REDIS_URL:
                 "CLIENT_CLASS": "django.core.cache.backends.redis.RedisClient",
             },
             "KEY_PREFIX": "taprent",
-            "TIMEOUT": 300,  # 5 minutes default
+            "TIMEOUT": 300,
         }
     }
 

@@ -8,7 +8,7 @@ TapRent is a state-of-the-art, full-stack SaaS platform designed for high-end eq
 
 ### Core Stack
 - **Frontend**: React 18, Tailwind CSS, Lucide React, Clerk Auth, React Router v6.
-- **Backend**: Django 4.2+, Django REST Framework, MySQL, Daphne (ASGI/WebSocket).
+- **Backend**: Django 4.2+, Django REST Framework, SQLite by default, Daphne (ASGI/WebSocket).
 - **Payment & Subs**: Stripe (Recurring billing, Webhooks, Payouts).
 - **AI/ML**: Scikit-Learn, Pandas (Personalized equipment recommendations).
 - **Real-time**: Django Channels, Redis-ready Pulse Engine.
@@ -43,6 +43,16 @@ pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
 ```
+
+### 2.1 Migrating Existing MySQL Data into SQLite
+If you still have the old MySQL database, keep the `MYSQL_SOURCE_*` values in `backend/.env`, then run:
+
+```bash
+cd backend
+python manage.py migrate_mysql_to_sqlite
+```
+
+This rebuilds `backend/db.sqlite3` from the current Django migrations, exports the MySQL data, and loads it into SQLite.
 
 ### 3. Frontend Orchestration
 ```bash

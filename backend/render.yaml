@@ -15,8 +15,10 @@ services:
         value: "*"
       - key: CORS_ALLOWED_ORIGINS
         sync: false
-      - key: DATABASE_URL
-        sync: false
+      - key: DB_ENGINE
+        value: sqlite
+      - key: DB_SQLITE_PATH
+        value: /var/data/db.sqlite3
       - key: DB_SSL
         value: "False"
       - key: STRIPE_SECRET_KEY
@@ -28,6 +30,10 @@ services:
           type: redis
           name: taprent-redis
           property: connectionString
+    disk:
+      name: taprent-data
+      mountPath: /var/data
+      sizeGB: 1
 
   - type: redis
     name: taprent-redis
