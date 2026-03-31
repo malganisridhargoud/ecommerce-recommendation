@@ -10,11 +10,13 @@ import {
 } from "../api/axiosConfig";
 import { useAppPreferences } from "../context/AppPreferencesContext";
 import TapRentAssistant from "../components/common/TapRentAssistant";
+import { downloadInvoice, formatDateTime, formatOrderCode } from "../lib/orderUtils";
 import {
   FiPackage, FiHeart, FiStar, FiShoppingCart, FiMapPin,
   FiMessageSquare, FiUser, FiChevronRight, FiClock,
   FiCheckCircle, FiAlertCircle, FiXCircle, FiSend,
-  FiTruck, FiActivity, FiHelpCircle
+  FiTruck, FiActivity, FiHelpCircle, FiCreditCard,
+  FiSmartphone, FiDownload, FiShield, FiShoppingBag
 } from "react-icons/fi";
 
 const stripeKey = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || "";
@@ -24,6 +26,24 @@ function fmt(value) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency", currency: "INR", maximumFractionDigits: 0,
   }).format(Number(value || 0));
+}
+
+function persistOrderSuccess(payload) {
+  try {
+    sessionStorage.setItem("taprent_last_order", JSON.stringify(payload));
+  } catch {
+    // Ignore storage failures and continue navigation.
+  }
+}
+
+function estimateDeliveryText(cartItems) {
+  if (!cartItems?.length) return "Add rentals to calculate delivery";
+  const earliest = [...cartItems]
+    .map((item) => item.start_date)
+    .filter(Boolean)
+    .sort()[0];
+  if (!earliest) return "Delivery estimate after checkout";
+  return `Estimated by ${earliest}`;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -574,30 +594,95 @@ function StatusTag({ status }) {
 }
 
 /* ─── Order Timeline ─────────────────────────────────────── */
-function OrderTimeline({ status }) {
-  const s = (status || "").toLowerCase();
-  if (s === "cancelled") return (
-    <div className="timeline-cancelled">
-      <FiXCircle size={14} /> Order Cancelled
-    </div>
-  );
+function OrderTimeline({ booking }) {
+  const s = (booking?.status || "").toLowerCase();
+  if (s === "cancelled") {
+    return (
+      <div style={{ display: "grid", gap: 12 }}>
+        <div className="timeline-cancelled">
+          <FiXCircle size={14} /> Order Cancelled
+        </div>
+        <div style={{ display: "grid", gap: 10 }}>
+          {[
+            { label: "Order placed", value: formatDateTime(booking?.created_at) },
+            { label: "Cancellation recorded", value: formatDateTime(booking?.updated_at) },
+            {
+              label: "Refund update",
+              value: booking?.refund_processed_at
+                ? `${formatDateTime(booking.refund_processed_at)}${booking?.refund_amount ? ` - ${fmt(booking.refund_amount)}` : ""}`
+                : booking?.refund_status || "Pending review",
+            },
+          ].map((entry) => (
+            <div key={entry.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink3)", letterSpacing: "0.04em" }}>
+              <span>{entry.label}</span>
+              <span style={{ color: "var(--ink)" }}>{entry.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const stages = ["Placed", "Confirmed", "Shipped", "Delivered", "Completed"];
   const cur = s === "confirmed" || s === "active" ? 1 : s === "shipped" ? 2 : s === "delivered" ? 3 : s === "completed" ? 4 : 0;
   const pct = (cur / 4) * 100;
+  const liveEntries = [
+    { label: "Order placed", value: formatDateTime(booking?.created_at) },
+    { label: "Latest status update", value: formatDateTime(booking?.updated_at) },
+    { label: "Rental starts", value: booking?.start_date || "Pending" },
+    { label: "Rental ends", value: booking?.end_date || "Pending" },
+  ];
+
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div className="timeline" style={{ maxWidth: 500 }}>
-        <div className="timeline-track" />
-        <div className="timeline-fill" style={{ width: `${pct}%` }} />
-        {stages.map((stage, i) => (
-          <div key={i} className="timeline-step">
-            <div className={`timeline-dot ${i <= cur ? "done" : ""}`}>
-              {i === 2 ? <FiTruck size={10} /> : <FiCheckCircle size={10} />}
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ marginBottom: 4 }}>
+        <div className="timeline" style={{ maxWidth: 500 }}>
+          <div className="timeline-track" />
+          <div className="timeline-fill" style={{ width: `${pct}%` }} />
+          {stages.map((stage, i) => (
+            <div key={i} className="timeline-step">
+              <div className={`timeline-dot ${i <= cur ? "done" : ""}`}>
+                {i === 2 ? <FiTruck size={10} /> : <FiCheckCircle size={10} />}
+              </div>
+              <span className={`timeline-step-lbl ${i <= cur ? "done" : ""}`}>{stage}</span>
             </div>
-            <span className={`timeline-step-lbl ${i <= cur ? "done" : ""}`}>{stage}</span>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
+        {liveEntries.map((entry) => (
+          <div key={entry.label} style={{ border: "1px solid var(--border)", background: "var(--surface)", padding: "12px 14px" }}>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 8, color: "var(--ink4)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 6 }}>{entry.label}</div>
+            <div style={{ fontFamily: "var(--serif)", fontSize: 15, color: "var(--ink)", lineHeight: 1.4 }}>{entry.value}</div>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CheckoutProgress({ currentStep }) {
+  const steps = ["Cart", "Delivery", "Payment", "Review"];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+      {steps.map((step, index) => {
+        const active = index <= currentStep;
+        return (
+          <div
+            key={step}
+            style={{
+              border: `1px solid ${active ? "var(--blue-border)" : "var(--border)"}`,
+              background: active ? "var(--blue-bg)" : "var(--surface)",
+              padding: "14px 16px",
+            }}
+          >
+            <div style={{ fontFamily: "var(--mono)", fontSize: 8, letterSpacing: "0.18em", color: active ? "var(--blue)" : "var(--ink4)", textTransform: "uppercase", marginBottom: 4 }}>
+              Step {index + 1}
+            </div>
+            <div style={{ fontFamily: "var(--serif)", fontSize: 18, color: "var(--ink)", fontStyle: "italic" }}>{step}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -620,12 +705,12 @@ function CartPaymentForm({ onConfirmed, navigate }) {
       });
       if (error) toast.error(error.message || "Payment failed.");
       else { 
-        await bookingsAPI.confirmCartPayment(paymentIntent.id); 
-        toast.success("Order completed! Redirecting to your orders..."); 
-        if (onConfirmed) onConfirmed(); 
+        const result = await bookingsAPI.confirmCartPayment(paymentIntent.id);
+        toast.success("Order completed! Redirecting to your order summary...");
+        if (onConfirmed) onConfirmed(result);
         setTimeout(() => {
-          if (navigate) navigate("/buyer?tab=orders");
-          else window.location.href = "/buyer?tab=orders";
+          if (navigate) navigate("/buyer/success", { state: { orderSuccess: result } });
+          else window.location.href = "/buyer/success";
         }, 1500);
       }
     } catch (err) { toast.error(err.message || "Failed."); }
@@ -742,6 +827,9 @@ export default function BuyerDashboard() {
   const [cartItems, setCartItems] = useState([]);
   const [cartClientSecret, setCartClientSecret] = useState("");
   const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [checkoutMethod, setCheckoutMethod] = useState("stripe");
+  const [checkoutDraft, setCheckoutDraft] = useState(null);
   const [addressForm, setAddressForm] = useState({ label:"Home", full_name:"", phone:"", line1:"", line2:"", city:"", state:"", postal_code:"", country:"India", is_default:false });
   const [threads, setThreads] = useState([]);
   const [selectedThread, setSelectedThread] = useState(null);
@@ -757,6 +845,10 @@ export default function BuyerDashboard() {
   const totalSpend = useMemo(() => bookings.reduce((s, b) => s + Number(b.total_price || 0), 0), [bookings]);
   const cartTotal  = useMemo(() => cartItems.reduce((s, i) => s + Number(i.subtotal || 0), 0), [cartItems]);
   const pendingOrders = bookings.filter(b => b.status === "pending").length;
+  const selectedAddress = useMemo(
+    () => addresses.find((address) => Number(address.id) === Number(selectedAddressId)) || addresses.find((address) => address.is_default) || addresses[0] || null,
+    [addresses, selectedAddressId]
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -807,6 +899,15 @@ export default function BuyerDashboard() {
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { if (allowedTabs.has(requestedTab)) setTab(requestedTab); }, [requestedTab, allowedTabs]);
+  useEffect(() => {
+    if (!addresses.length) {
+      setSelectedAddressId(null);
+      return;
+    }
+    if (selectedAddressId && addresses.some((address) => Number(address.id) === Number(selectedAddressId))) return;
+    const nextDefault = addresses.find((address) => address.is_default) || addresses[0];
+    setSelectedAddressId(nextDefault?.id || null);
+  }, [addresses, selectedAddressId]);
 
   useEffect(() => {
     if (!selectedThread?.id) return;
@@ -826,7 +927,10 @@ export default function BuyerDashboard() {
       setAddressForm({ label:"Home", full_name:"", phone:"", line1:"", line2:"", city:"", state:"", postal_code:"", country:"India", is_default:false });
       toast.success("Address saved.");
       const next = await usersAPI.addresses();
-      setAddresses(Array.isArray(next) ? next : next?.results || []);
+      const nextAddresses = Array.isArray(next) ? next : next?.results || [];
+      setAddresses(nextAddresses);
+      const nextDefault = nextAddresses.find((address) => address.is_default) || nextAddresses[0];
+      setSelectedAddressId(nextDefault?.id || null);
     } catch (err) { toast.error(err.message || "Failed."); }
   };
 
@@ -847,20 +951,35 @@ export default function BuyerDashboard() {
     try { 
       await equipmentAPI.removeCartItem(id); 
       const n = await equipmentAPI.cart(); 
-      setCartItems(Array.isArray(n) ? n : n?.results || []); 
-      setCartCount(0);
+      const nextItems = Array.isArray(n) ? n : n?.results || [];
+      setCartItems(nextItems);
+      setCartCount(nextItems.reduce((acc, item) => acc + Number(item.quantity || 0), 0));
     } catch (err) { toast.error(err.message || "Failed."); }
   };
 
   const checkoutCart = async (method) => {
+    if (!selectedAddress) {
+      toast.error("Choose a delivery address before checkout.");
+      setTab("addresses");
+      return;
+    }
+    if (["upi", "wallet"].includes(method)) {
+      toast("This payment option is coming soon. Use Card or COD for now.", { icon: "i" });
+      return;
+    }
     try {
-      const result = await bookingsAPI.cartCheckout(method);
+      const result = await bookingsAPI.cartCheckout(method, selectedAddress);
+      setCheckoutDraft(result);
       if (method === "cod") {
         setCartClientSecret("");
+        setCheckoutMethod(method);
+        persistOrderSuccess(result);
         toast.success("COD order placed.");
         setCartCount(0);
         loadData();
+        navigate("/buyer/success", { state: { orderSuccess: result } });
       } else {
+        setCheckoutMethod(method);
         setCartClientSecret(result.client_secret || "");
       }
     } catch (err) {
@@ -872,6 +991,7 @@ export default function BuyerDashboard() {
           await usersAPI.roleSync();
           toast.success("Account synced. Please try checkout again.");
           setCartClientSecret("");
+          setCheckoutDraft(null);
           loadData();
         } catch (syncErr) {
           toast.error("Only buyers can checkout. Please verify your account role.");
@@ -902,6 +1022,8 @@ export default function BuyerDashboard() {
 
   const firstName = profile?.full_name?.split(" ")[0];
   const dateStr = new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long" });
+  const checkoutStep = cartClientSecret ? 3 : checkoutMethod ? 2 : selectedAddress ? 1 : 0;
+  const deliveryEstimate = estimateDeliveryText(cartItems);
 
   return (
     <>
@@ -1010,7 +1132,7 @@ export default function BuyerDashboard() {
                           <div className="order-card-hdr">
                             <div>
                               <div className="order-hdr-lbl">Order Placed</div>
-                              <div className="order-hdr-val">{b.start_date}</div>
+                              <div className="order-hdr-val">{formatDateTime(b.created_at)}</div>
                             </div>
                             <div>
                               <div className="order-hdr-lbl">Total</div>
@@ -1022,7 +1144,7 @@ export default function BuyerDashboard() {
                             </div>
                             <div>
                               <div className="order-hdr-lbl">Order #</div>
-                              <div className="order-hdr-val">ORD-{String(b.id).padStart(6,"0")}</div>
+                              <div className="order-hdr-val">{formatOrderCode(b.id)}</div>
                             </div>
                             <Link to={`/equipment/${b.equipment}`} className="order-hdr-link" style={{ alignSelf:"flex-start" }}>
                               View Details
@@ -1041,9 +1163,13 @@ export default function BuyerDashboard() {
                                 <div className="order-name">{b.equipment_detail?.name || "Equipment Rental"}</div>
                                 <div className="order-dates">{b.start_date} — {b.end_date}</div>
                                 <div style={{ marginTop:6 }}><StatusTag status={b.status} /></div>
+                                <div style={{ marginTop:6, fontFamily:"var(--mono)", fontSize:9, color:"var(--ink4)", letterSpacing:"0.06em" }}>
+                                  Latest update: {formatDateTime(b.updated_at || b.created_at)}
+                                </div>
                               </div>
                             </div>
                             <div className="order-actions">
+                              <button className="btn btn-ghost" style={{ fontSize:9, padding:"8px 14px" }} onClick={() => downloadInvoice([b], { title: `TapRent Invoice ${formatOrderCode(b.id)}` })}><FiDownload size={10} /> Download Invoice</button>
                               {b.status === "active" && <>
                                 <button className="btn btn-green" style={{ fontSize:9, padding:"8px 14px" }} onClick={() => markCompleted(b.id)}><FiCheckCircle size={10} /> Mark Completed</button>
                                 <button className="btn btn-ghost" style={{ fontSize:9, padding:"8px 14px" }} onClick={() => { setDisputeBooking(b); setShowDispute(true); }}><FiAlertCircle size={10} /> Report Issue</button>
@@ -1063,7 +1189,7 @@ export default function BuyerDashboard() {
                           {/* Timeline */}
                           <div className="timeline-wrap">
                             <div className="timeline-lbl">Delivery &amp; Status Tracking</div>
-                            <OrderTimeline status={b.status} />
+                            <OrderTimeline booking={b} />
                             <div style={{ fontFamily:"var(--mono)", fontSize:9, color:"var(--ink4)", letterSpacing:"0.05em", marginTop:8 }}>
                               Tracking info is updated by the vendor. Message them for urgent queries.
                             </div>
@@ -1171,7 +1297,9 @@ export default function BuyerDashboard() {
                       <div className="empty-sub">Add equipment to get started</div>
                     </div>
                   ) : (
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 340px", gap:20, alignItems:"start" }}>
+                    <div style={{ display:"grid", gap:20 }}>
+                      <CheckoutProgress currentStep={checkoutStep} />
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 360px", gap:20, alignItems:"start" }}>
                       <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
                         {cartItems.map(item => (
                           <div key={item.id} className="cart-item">
@@ -1189,45 +1317,180 @@ export default function BuyerDashboard() {
                             <button className="cart-remove" onClick={() => removeCartItem(item.id)}><FiXCircle size={18} /></button>
                           </div>
                         ))}
+                        <div style={{ background:"var(--surface)", border:"1px solid var(--border)", padding:"20px 24px", marginTop:18 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:16, marginBottom:16 }}>
+                            <div>
+                              <div className="card-title">Delivery Address</div>
+                              <div className="card-meta" style={{ marginTop:3 }}>Select where the rental should be delivered or staged</div>
+                            </div>
+                            <button className="btn btn-ghost" style={{ fontSize:9, padding:"8px 12px" }} onClick={() => setTab("addresses")}>
+                              Manage Addresses
+                            </button>
+                          </div>
+                          {addresses.length === 0 ? (
+                            <div style={{ padding:"14px 16px", border:"1px dashed var(--border2)", color:"var(--ink3)", fontFamily:"var(--mono)", fontSize:10, letterSpacing:"0.06em" }}>
+                              Add a saved address before checkout.
+                            </div>
+                          ) : (
+                            <div style={{ display:"grid", gap:10 }}>
+                              {addresses.map(address => {
+                                const active = Number(selectedAddress?.id) === Number(address.id);
+                                return (
+                                  <button
+                                    key={address.id}
+                                    onClick={() => setSelectedAddressId(address.id)}
+                                    style={{
+                                      all: "unset",
+                                      cursor: "pointer",
+                                      display: "block",
+                                      border: `1px solid ${active ? "var(--blue)" : "var(--border)"}`,
+                                      background: active ? "var(--blue-bg)" : "var(--surface)",
+                                      padding: "16px 18px",
+                                    }}
+                                  >
+                                    <div style={{ display:"flex", justifyContent:"space-between", gap:12 }}>
+                                      <div style={{ fontFamily:"var(--serif)", fontSize:18, color:"var(--ink)", fontStyle:"italic" }}>{address.label}</div>
+                                      {address.is_default && <span className="tag tag-blue">Default</span>}
+                                    </div>
+                                    <div style={{ marginTop:8, fontFamily:"var(--mono)", fontSize:10, color:"var(--ink3)", lineHeight:1.8, letterSpacing:"0.04em" }}>
+                                      {address.full_name}<br />
+                                      {address.line1}{address.line2 ? `, ${address.line2}` : ""}<br />
+                                      {address.city}, {address.state} {address.postal_code}<br />
+                                      {address.phone}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="summary-card" style={{ position:"sticky", top:68 }}>
-                        <div className="summary-title">Order Summary</div>
-                        <div className="summary-row">
-                          <span className="summary-row-lbl">Subtotal ({cartItems.length} items)</span>
-                          <span className="summary-row-val">{fmt(cartTotal)}</span>
-                        </div>
-                        <div className="summary-row">
-                          <span className="summary-row-lbl">Platform Fee</span>
-                          <span style={{ fontFamily:"var(--mono)", fontSize:10, color:"var(--green)", letterSpacing:"0.08em" }}>Free</span>
-                        </div>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", padding:"16px 0", borderTop:"2px solid var(--ink)", marginTop:8 }}>
-                          <span className="summary-total-lbl">Total</span>
-                          <span className="summary-total-val">{fmt(cartTotal)}</span>
-                        </div>
-                        <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:8 }}>
-                          <button className="btn btn-blue btn-pill" style={{ width:"100%", padding:"12px 0", fontSize:10 }} onClick={() => checkoutCart("stripe")}>
-                            Checkout with Card
-                          </button>
-                          <button className="btn btn-ghost btn-pill" style={{ width:"100%", padding:"12px 0", fontSize:10 }} onClick={() => checkoutCart("cod")}>
-                            Cash on Delivery
-                          </button>
-                        </div>
-                        {!stripeKey && (
-                          <div style={{ marginTop:14, padding:"10px 14px", background:"var(--red-bg)", border:"1px solid var(--red-border)", fontFamily:"var(--mono)", fontSize:10, color:"var(--red)", letterSpacing:"0.04em" }}>
-                            Stripe key not configured.
-                          </div>
-                        )}
-                        {cartClientSecret && stripePromise && (
-                          <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid var(--border)" }}>
-                            <Elements stripe={stripePromise} options={{ clientSecret: cartClientSecret }}>
-                              <CartPaymentForm onConfirmed={() => { setCartClientSecret(""); loadData(); }} navigate={navigate} />
-                            </Elements>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+	                      <div className="summary-card" style={{ position:"sticky", top:68 }}>
+	                        <div className="summary-title">Checkout Summary</div>
+	                        <div className="summary-row">
+	                          <span className="summary-row-lbl">Items</span>
+	                          <span className="summary-row-val">{cartItems.length}</span>
+	                        </div>
+	                        <div className="summary-row">
+	                          <span className="summary-row-lbl">Subtotal</span>
+	                          <span className="summary-row-val">{fmt(cartTotal)}</span>
+	                        </div>
+	                        <div className="summary-row">
+	                          <span className="summary-row-lbl">Delivery estimate</span>
+	                          <span className="summary-row-val" style={{ fontSize:9 }}>{deliveryEstimate}</span>
+	                        </div>
+	                        <div className="summary-row">
+	                          <span className="summary-row-lbl">Protection fee</span>
+	                          <span style={{ fontFamily:"var(--mono)", fontSize:10, color:"var(--green)", letterSpacing:"0.08em" }}>Included</span>
+	                        </div>
+	                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", padding:"16px 0", borderTop:"2px solid var(--ink)", marginTop:8 }}>
+	                          <span className="summary-total-lbl">Total</span>
+	                          <span className="summary-total-val">{fmt(cartTotal)}</span>
+	                        </div>
+	                        <div style={{ marginTop:16 }}>
+	                          <div style={{ fontFamily:"var(--mono)", fontSize:9, letterSpacing:"0.18em", color:"var(--ink4)", textTransform:"uppercase", marginBottom:10 }}>Payment Method</div>
+	                          <div style={{ display:"grid", gap:10 }}>
+	                            {[
+	                              { id:"stripe", label:"Card", desc:"Visa, Mastercard, AMEX", icon: FiCreditCard, active:true },
+	                              { id:"cod", label:"Cash on Delivery", desc:"Pay at handoff or delivery", icon: FiTruck, active:true },
+	                              { id:"upi", label:"UPI", desc:"Coming soon", icon: FiSmartphone, active:false },
+	                              { id:"wallet", label:"Wallet", desc:"Coming soon", icon: FiShoppingBag, active:false },
+	                            ].map(method => {
+	                              const active = checkoutMethod === method.id;
+	                              return (
+	                                <button
+	                                  key={method.id}
+	                                  onClick={() => method.active && setCheckoutMethod(method.id)}
+	                                  style={{
+	                                    all: "unset",
+	                                    cursor: method.active ? "pointer" : "not-allowed",
+	                                    border: `1px solid ${active ? "var(--blue)" : "var(--border)"}`,
+	                                    background: active ? "var(--blue-bg)" : "var(--surface)",
+	                                    opacity: method.active ? 1 : 0.55,
+	                                    padding: "14px 16px",
+	                                    display: "flex",
+	                                    alignItems: "center",
+	                                    gap: 12,
+	                                  }}
+	                                >
+	                                  <div style={{ width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", border:"1px solid var(--border)", background:"var(--surface2)" }}>
+	                                    <method.icon size={16} />
+	                                  </div>
+	                                  <div style={{ flex:1 }}>
+	                                    <div style={{ fontFamily:"var(--serif)", fontSize:17, color:"var(--ink)", fontStyle:"italic" }}>{method.label}</div>
+	                                    <div style={{ fontFamily:"var(--mono)", fontSize:9, color:"var(--ink4)", letterSpacing:"0.06em", marginTop:2 }}>{method.desc}</div>
+	                                  </div>
+	                                  {active && <FiCheckCircle size={16} color="var(--blue)" />}
+	                                </button>
+	                              );
+	                            })}
+	                          </div>
+	                        </div>
+	                        <div style={{ marginTop:16, padding:"14px 16px", border:"1px solid var(--border)", background:"var(--surface2)" }}>
+	                          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+	                            <FiShield size={14} color="var(--blue)" />
+	                            <span style={{ fontFamily:"var(--mono)", fontSize:9, letterSpacing:"0.16em", color:"var(--ink4)", textTransform:"uppercase" }}>Return, Refund and Cancellation</span>
+	                          </div>
+	                          <div style={{ display:"grid", gap:8, fontFamily:"var(--mono)", fontSize:10, color:"var(--ink3)", lineHeight:1.7 }}>
+	                            <span>Full refund when cancelled more than 24 hours before the rental start date.</span>
+	                            <span>50% refund when cancelled within 24 hours of the rental start date.</span>
+	                            <span>Refund processing status appears in your order tracker after cancellation.</span>
+	                          </div>
+	                        </div>
+	                        {!stripeKey && checkoutMethod === "stripe" && (
+	                          <div style={{ marginTop:14, padding:"10px 14px", background:"var(--red-bg)", border:"1px solid var(--red-border)", fontFamily:"var(--mono)", fontSize:10, color:"var(--red)", letterSpacing:"0.04em" }}>
+	                            Stripe key not configured.
+	                          </div>
+	                        )}
+	                        <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:16 }}>
+	                          <button className="btn btn-blue btn-pill" style={{ width:"100%", padding:"12px 0", fontSize:10 }} onClick={() => checkoutCart(checkoutMethod)}>
+	                            {checkoutMethod === "cod" ? "Place COD Order" : checkoutMethod === "stripe" ? "Continue to Secure Payment" : "Select Supported Method"}
+	                          </button>
+	                          <button className="btn btn-ghost btn-pill" style={{ width:"100%", padding:"12px 0", fontSize:10 }} onClick={() => navigate("/buyer?tab=orders")}>
+	                            Review Existing Orders
+	                          </button>
+	                        </div>
+	                        {cartClientSecret && stripePromise && (
+	                          <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid var(--border)" }}>
+	                            <Elements stripe={stripePromise} options={{ clientSecret: cartClientSecret }}>
+	                              <CartPaymentForm
+	                                onConfirmed={(result) => {
+	                                  setCartClientSecret("");
+	                                  setCheckoutDraft(result);
+	                                  persistOrderSuccess(result);
+	                                  setCartCount(0);
+	                                  loadData();
+	                                }}
+	                                navigate={navigate}
+	                              />
+	                            </Elements>
+	                          </div>
+	                        )}
+	                        {selectedAddress && (
+	                          <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid var(--border)" }}>
+	                            <div style={{ fontFamily:"var(--mono)", fontSize:8, color:"var(--ink4)", letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:6 }}>Deliver to</div>
+	                            <div style={{ fontFamily:"var(--serif)", fontSize:16, color:"var(--ink)", fontStyle:"italic" }}>{selectedAddress.label}</div>
+	                            <div style={{ marginTop:6, fontFamily:"var(--mono)", fontSize:10, color:"var(--ink3)", lineHeight:1.7 }}>
+	                              {selectedAddress.full_name}<br />
+	                              {selectedAddress.line1}{selectedAddress.line2 ? `, ${selectedAddress.line2}` : ""}<br />
+	                              {selectedAddress.city}, {selectedAddress.state} {selectedAddress.postal_code}
+	                            </div>
+	                          </div>
+	                        )}
+	                        {checkoutDraft?.bookings?.length > 0 && (
+	                          <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid var(--border)" }}>
+	                            <div style={{ fontFamily:"var(--mono)", fontSize:8, color:"var(--ink4)", letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:6 }}>Prepared Order</div>
+	                            <div style={{ fontFamily:"var(--serif)", fontSize:16, color:"var(--ink)", fontStyle:"italic" }}>{formatOrderCode(checkoutDraft.bookings[0].id)}</div>
+	                            <div style={{ marginTop:6, fontFamily:"var(--mono)", fontSize:10, color:"var(--ink3)", lineHeight:1.7 }}>
+	                              {checkoutDraft.bookings.length} booking(s) ready for confirmation.
+	                            </div>
+	                          </div>
+	                        )}
+	                      </div>
+	                    </div>
+	                  </div>
+	                )}
                 </div>
               </div>
             )}

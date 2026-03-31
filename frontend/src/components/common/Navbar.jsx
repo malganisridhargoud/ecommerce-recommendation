@@ -3,7 +3,7 @@ import { SignInButton, UserButton, useAuth } from "@clerk/clerk-react";
 import { useEffect, useMemo, useState } from "react";
 import { chatAPI, equipmentAPI, usersAPI } from "../../api/axiosConfig";
 import { useAppPreferences } from "../../context/AppPreferencesContext";
-import { FiSearch, FiMapPin, FiHeart, FiShoppingCart, FiMessageSquare, FiUser, FiPackage, FiGrid } from "react-icons/fi";
+import { FiSearch, FiMapPin, FiHeart, FiShoppingCart, FiMessageSquare, FiUser, FiPackage, FiGrid, FiArrowRight, FiTruck, FiXCircle } from "react-icons/fi";
 
 const CATEGORIES = [
   { slug: "camera", label: "Camera" },
@@ -21,24 +21,44 @@ const BUYER_TAB_LINKS = {
   messages: "/buyer?tab=chat",
 };
 
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function getDeliveryEstimate(cartItems) {
+  if (!cartItems?.length) return "Add rentals to estimate delivery";
+  const earliest = [...cartItems]
+    .map((item) => item.start_date)
+    .filter(Boolean)
+    .sort()[0];
+  return earliest ? `Estimated by ${earliest}` : "Estimate available at checkout";
+}
+
 export default function Navbar() {
   const { isSignedIn } = useAuth();
   const { language, setLanguage, location, setLocation, languageOptions, t, cartCount, setCartCount, unreadMessages, setUnreadMessages } = useAppPreferences();
   const [role, setRole] = useState("");
   const [wishlistCount, setWishlistCount] = useState(0);
   const [searchInput, setSearchInput] = useState("");
+  const [cartItems, setCartItems] = useState([]);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     let mounted = true;
     async function hydrate() {
-      if (!isSignedIn) {
-        setRole("");
-        setWishlistCount(0);
-        setUnreadMessages(0);
-        setCartCount(0);
-        return;
-      }
+        if (!isSignedIn) {
+          setRole("");
+          setWishlistCount(0);
+          setUnreadMessages(0);
+          setCartCount(0);
+          setCartItems([]);
+          return;
+        }
       try {
         const [me, wl, threads, cart] = await Promise.all([
           usersAPI.me(),
@@ -50,7 +70,9 @@ export default function Navbar() {
         setRole(me?.role || "buyer");
         setWishlistCount(Array.isArray(wl) ? wl.length : 0);
         setUnreadMessages(Array.isArray(threads) ? threads.length : 0);
-        setCartCount(Array.isArray(cart) ? cart.reduce((acc, item) => acc + item.quantity, 0) : 0);
+        const cartList = Array.isArray(cart) ? cart : [];
+        setCartItems(cartList);
+        setCartCount(cartList.reduce((acc, item) => acc + item.quantity, 0));
       } catch {
         if (mounted) setRole("buyer");
       }
@@ -60,6 +82,11 @@ export default function Navbar() {
   }, [isSignedIn, setCartCount, setUnreadMessages]);
 
   const dashboardLink = useMemo(() => ROLE_DASH[role] || "/buyer", [role]);
+  const cartSubtotal = useMemo(
+    () => cartItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0),
+    [cartItems]
+  );
+  const deliveryEstimate = useMemo(() => getDeliveryEstimate(cartItems), [cartItems]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -68,6 +95,19 @@ export default function Navbar() {
     } else {
       navigate(`/equipment`);
     }
+  };
+
+  const openCartDrawer = async () => {
+    if (!isSignedIn || role === "vendor") return;
+    try {
+      const cart = await equipmentAPI.cart().catch(() => []);
+      const cartList = Array.isArray(cart) ? cart : [];
+      setCartItems(cartList);
+      setCartCount(cartList.reduce((acc, item) => acc + Number(item.quantity || 0), 0));
+    } catch {
+      // Keep the existing cart snapshot if refresh fails.
+    }
+    setCartDrawerOpen(true);
   };
 
   return (
@@ -179,10 +219,10 @@ export default function Navbar() {
                     </NavLink>
                   )}
                   {role !== "vendor" && (
-                    <NavLink to={BUYER_TAB_LINKS.cart} title="Cart" className="p-2 rounded-full transition-all duration-200 relative text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]">
+                    <button type="button" onClick={openCartDrawer} title="Cart" className="p-2 rounded-full transition-all duration-200 relative text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]">
                       <FiShoppingCart className="w-[18px] h-[18px]" />
                       {cartCount > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] bg-[#0071e3] text-white flex items-center justify-center text-[9px] font-bold rounded-full px-1 border-[1.5px] border-white">{cartCount}</span>}
-                    </NavLink>
+                    </button>
                   )}
                   <NavLink to={role === "buyer" ? BUYER_TAB_LINKS.messages : `${dashboardLink}#messages`} title="Messages" className="p-2 rounded-full transition-all duration-200 relative text-[#6e6e73] hover:bg-[#f5f5f7] hover:text-[#1d1d1f]">
                     <FiMessageSquare className="w-[18px] h-[18px]" />
@@ -194,6 +234,87 @@ export default function Navbar() {
           </nav>
         </div>
       </header>
+
+      {cartDrawerOpen && role !== "vendor" && isSignedIn && (
+        <div className="fixed inset-0 z-[60]">
+          <button
+            type="button"
+            onClick={() => setCartDrawerOpen(false)}
+            className="absolute inset-0 bg-[#111827]/30 backdrop-blur-[2px]"
+            aria-label="Close mini cart"
+          />
+          <aside className="absolute right-0 top-0 h-full w-full max-w-[420px] bg-white shadow-[0_30px_100px_rgba(15,23,42,0.22)] border-l border-gray-200 flex flex-col">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-[#0071e3] font-semibold mb-2">Mini Cart</div>
+                <h3 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">Ready to check out</h3>
+                <p className="text-sm text-[#6e6e73] mt-1">{cartCount} item(s) in your cart</p>
+              </div>
+              <button type="button" onClick={() => setCartDrawerOpen(false)} className="w-10 h-10 rounded-full bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center">
+                <FiXCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {cartItems.length === 0 ? (
+                <div className="rounded-[28px] border border-dashed border-gray-200 bg-[#fafafa] p-8 text-center">
+                  <FiShoppingCart className="w-8 h-8 mx-auto text-[#9ca3af] mb-4" />
+                  <div className="text-lg font-semibold text-[#1d1d1f] mb-2">Your cart is empty</div>
+                  <p className="text-sm text-[#6e6e73]">Add rentals to see a live subtotal and delivery estimate here.</p>
+                </div>
+              ) : (
+                <>
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="rounded-[24px] border border-gray-200 bg-white p-4">
+                      <div className="flex gap-3">
+                        <img
+                          src={item.equipment_detail?.image_url}
+                          alt={item.equipment_detail?.name}
+                          className="w-20 h-20 rounded-2xl object-cover bg-[#f5f5f7] border border-gray-100"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-[#1d1d1f] truncate">{item.equipment_detail?.name}</div>
+                          <div className="text-xs text-[#6e6e73] mt-1">{item.start_date} to {item.end_date}</div>
+                          <div className="text-xs text-[#6e6e73] mt-1">Qty: {item.quantity}</div>
+                          <div className="text-sm font-semibold text-[#1d1d1f] mt-3">{formatCurrency(item.subtotal)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="rounded-[28px] bg-[#0f172a] text-white p-5">
+                    <div className="flex items-center justify-between text-sm text-white/70">
+                      <span>Subtotal</span>
+                      <span className="text-white font-semibold">{formatCurrency(cartSubtotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-white/70 mt-3 gap-4">
+                      <span className="inline-flex items-center gap-2">
+                        <FiTruck className="w-4 h-4 text-[#93c5fd]" />
+                        Delivery estimate
+                      </span>
+                      <span className="text-white font-semibold text-right">{deliveryEstimate}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="px-6 py-5 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={() => {
+                  setCartDrawerOpen(false);
+                  navigate(BUYER_TAB_LINKS.cart);
+                }}
+                className="w-full inline-flex items-center justify-between rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-semibold px-5 py-4 transition-colors"
+              >
+                Quick Checkout
+                <FiArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* ── Mobile Bottom Tab Bar ── */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-2xl border-t border-gray-200/40 safe-area-pb">

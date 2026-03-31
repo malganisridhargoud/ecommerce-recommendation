@@ -263,6 +263,7 @@ class CartCheckoutView(APIView):
             return Response({"error": "Only buyers can checkout cart."}, status=status.HTTP_403_FORBIDDEN)
 
         payment_method = request.data.get("payment_method", Booking.PaymentMethod.STRIPE)
+        shipping_address = request.data.get("shipping_address") or {}
         if payment_method not in [Booking.PaymentMethod.STRIPE, Booking.PaymentMethod.COD]:
             return Response({"error": "Invalid payment method."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -288,6 +289,7 @@ class CartCheckoutView(APIView):
                     user_id=request.user.id,
                     start_date=item.start_date,
                     end_date=item.end_date,
+                    shipping_address=shipping_address,
                     payment_method=payment_method,
                 )
                 if payment_method == Booking.PaymentMethod.COD:
@@ -319,6 +321,7 @@ class CartCheckoutView(APIView):
                 {
                     "checkout_id": checkout.id,
                     "status": checkout.status,
+                    "payment_method": payment_method,
                     "bookings": BookingSerializer(created_bookings, many=True).data,
                     "message": "COD order placed successfully.",
                 },
@@ -342,6 +345,7 @@ class CartCheckoutView(APIView):
                     "checkout_id": checkout.id,
                     "client_secret": intent["client_secret"],
                     "status": checkout.status,
+                    "payment_method": payment_method,
                     "bookings": BookingSerializer(created_bookings, many=True).data,
                 },
                 status=status.HTTP_201_CREATED,
@@ -381,8 +385,19 @@ class CartCheckoutConfirmView(APIView):
         checkout.status = CartCheckout.Status.PAID
         checkout.save(update_fields=["status"])
         CartItem.objects.filter(user_id=request.user.id).delete()
+        bookings = Booking.objects.filter(id__in=booking_ids, user_id=request.user.id).select_related(
+            "equipment", "equipment__vendor"
+        )
 
-        return Response({"status": checkout.status, "booking_ids": booking_ids})
+        return Response(
+            {
+                "checkout_id": checkout.id,
+                "status": checkout.status,
+                "payment_method": checkout.payment_method,
+                "booking_ids": booking_ids,
+                "bookings": BookingSerializer(bookings, many=True).data,
+            }
+        )
 
 
 class BookingCompleteView(APIView):

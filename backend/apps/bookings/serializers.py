@@ -14,9 +14,9 @@ class BookingSerializer(serializers.ModelSerializer):
             "start_date", "end_date", "total_price", "status", 
             "refund_amount", "refund_status", "refund_processed_at",
             "issue_text", "issue_status",
-            "notes", "created_at",
+            "notes", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "user_id", "total_price", "status", "created_at"]
+        read_only_fields = ["id", "user_id", "total_price", "status", "created_at", "updated_at"]
 
 
 class BookingCreateSerializer(serializers.Serializer):

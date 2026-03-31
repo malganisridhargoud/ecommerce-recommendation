@@ -156,8 +156,11 @@ export const bookingsAPI = {
   availability: (equipmentId, month, year) =>
     apiClient.get(`/bookings/availability/${equipmentId}/`, { params: { month, year } }),
   vendorBookings: () => apiClient.get("/bookings/vendor/"),
-  cartCheckout: (paymentMethod = "stripe") =>
-    apiClient.post("/bookings/cart/checkout/", { payment_method: paymentMethod }),
+  cartCheckout: (paymentMethod = "stripe", shippingAddress = null) =>
+    apiClient.post("/bookings/cart/checkout/", {
+      payment_method: paymentMethod,
+      shipping_address: shippingAddress || undefined,
+    }),
   confirmCartPayment: (paymentIntentId) =>
     apiClient.post("/bookings/cart/confirm/", { payment_intent_id: paymentIntentId }),
   complete: (id) => apiClient.post(`/bookings/${id}/complete/`),

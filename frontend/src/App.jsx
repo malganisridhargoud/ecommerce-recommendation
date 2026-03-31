@@ -13,6 +13,7 @@ import AdminLogin from "./pages/AdminLogin";
 import BuyerDashboard from "./pages/BuyerDashboard";
 import VendorDashboard from "./pages/VendorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import OrderSuccess from "./pages/OrderSuccess";
 import PricingPage from "./pages/PricingPage";
 import BlogPostPage from "./pages/BlogPostPage";
 import RoleAuth from "./pages/RoleAuth";
@@ -42,6 +43,7 @@ export default function App() {
               <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
                 <Route path="/dashboard" element={<BuyerDashboard />} />
                 <Route path="/buyer" element={<BuyerDashboard />} />
+                <Route path="/buyer/success" element={<OrderSuccess />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={["vendor"]} />}>
