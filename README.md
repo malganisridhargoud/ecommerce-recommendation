@@ -9,7 +9,8 @@ TapRent is a full-stack equipment rental marketplace built with React and Django
 - Realtime: Django Channels with in-memory layers locally and Redis in production
 - Payments: Stripe Payment Intents, Stripe Checkout subscriptions, webhooks, payouts
 - Auth: Clerk JWT validation plus Clerk webhook support
-- Data: SQLite by default
+- Data: SQLite by default, optional MySQL/Postgres-style `DATABASE_URL` support
+- Deployment: Docker, Render, Daphne ASGI
 
 ## Repository Structure
 
@@ -299,6 +300,7 @@ Default exposed ports:
 - Redis: `6379`
 
 ## Render Deployment
+<<<<<<< HEAD
 
 The backend includes `backend/render.yaml` and `backend/build.sh`.
 
@@ -340,3 +342,87 @@ npm test
 - Stripe subscription activation depends on both checkout confirmation and webhook/state sync.
 - Vendor subscription enforcement can be toggled via `REQUIRE_VENDOR_SUBSCRIPTION`.
 
+=======
+
+The backend includes `backend/render.yaml` and `backend/build.sh`.
+
+Production behavior:
+
+- build command installs requirements, collects static files, and runs migrations
+- start command uses Daphne: `daphne -b 0.0.0.0 -p $PORT config.asgi:application`
+- a persistent disk is configured for SQLite in the provided Render blueprint
+
+If you deploy the frontend separately, make sure:
+
+- `FRONTEND_URL` on the backend matches the deployed frontend origin
+- `CORS_ALLOWED_ORIGINS` and `CSRF_TRUSTED_ORIGINS` include the frontend domain
+- `REACT_APP_API_URL` on the frontend points to the deployed backend `/api`
+
+## Useful Commands
+
+Backend:
+
+```bash
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+python manage.py collectstatic --no-input
+```
+
+Frontend:
+
+```bash
+npm start
+npm run build
+npm test
+```
+
+## Current Project Notes
+
+- Recommendations endpoints currently return placeholder/mock responses.
+- Redis is optional locally but recommended for production realtime workloads.
+- Stripe subscription activation depends on both checkout confirmation and webhook/state sync.
+- Vendor subscription enforcement can be toggled via `REQUIRE_VENDOR_SUBSCRIPTION`.
+
+## Troubleshooting
+
+### Frontend cannot reach backend
+
+Check:
+
+- `REACT_APP_API_URL`
+- backend `CORS_ALLOWED_ORIGINS`
+- backend `CSRF_TRUSTED_ORIGINS`
+- that the backend is serving `/health/`
+
+### Clerk-authenticated requests fail
+
+Check:
+
+- frontend publishable key
+- backend `CLERK_JWKS_URL`
+- backend `CLERK_ISSUER`
+- that the user token is being attached on requests
+
+### Stripe checkout succeeds but vendor plan is not active
+
+Check:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_ID` or the default fallback subscription pricing in `backend/apps/payments/views.py`
+- that the frontend receives a `session_id` and calls `/api/payments/confirm-subscription-session/`
+- webhook delivery for subscription events
+
+### Realtime updates do not appear
+
+Check:
+
+- ASGI/Daphne is running, not just WSGI
+- WebSocket auth is configured correctly
+- `REDIS_URL` is set in distributed environments
+
+## License
+
+Add your preferred license here if this project is being distributed publicly.
+>>>>>>> 4ee96c0 (updated code)
