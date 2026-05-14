@@ -1,5 +1,4 @@
 # TapRent
-
 TapRent is a full-stack equipment rental marketplace built with React and Django. It supports buyer bookings, vendor inventory management, Stripe-powered payments and subscriptions, role-based dashboards, Clerk authentication, real-time booking updates over WebSockets, and admin moderation tooling.
 
 ## Stack
