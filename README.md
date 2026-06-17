@@ -48,8 +48,8 @@ equipment-rental-saas/
 |   |   |-- App.jsx
 |   |   `-- index.js
 |   |-- package.json
-|   `-- Dockerfile
-|-- docker-compose.yml
+|   `
+|
 `-- README.md
 
 ## Core Features## Buyer Experience
