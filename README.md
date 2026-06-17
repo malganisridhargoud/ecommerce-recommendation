@@ -225,7 +225,3 @@ cd backend
 python manage.py migrate_mysql_to_sqlite
 
 Note: Ensure source connection credentials are set inside MYSQL_SOURCE_* environments before execution.
-
-## Render Deployment
-The backend application contains optimized infrastructure settings within backend/render.yaml using Gunicorn execution paths to facilitate rapid, zero-downtime server setups on standard cloud runtimes.
-------------------------------
