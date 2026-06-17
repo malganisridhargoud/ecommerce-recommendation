@@ -1,21 +1,19 @@
-# TapRent
-TapRent is a full-stack equipment rental marketplace built with React and Django. It supports buyer bookings, vendor inventory management, Stripe-powered payments and subscriptions, role-based dashboards, Clerk authentication, real-time booking updates over WebSockets, and admin moderation tooling.
-
+## TapRent SaaS
+TapRent is a professional full-stack equipment rental marketplace built with React and Django. The platform seamlessly handles buyer bookings, vendor inventory management, Stripe-powered payments and subscriptions, role-based dashboards, Clerk authentication, and comprehensive admin moderation tooling.
 ## Stack
 
-- Frontend: React 18, React Router, Tailwind CSS, Clerk, Stripe.js, Axios, Recharts
-- Backend: Django, Django REST Framework, Daphne, Channels
-- Realtime: Django Channels with in-memory layers locally and Redis in production
-- Payments: Stripe Payment Intents, Stripe Checkout subscriptions, webhooks, payouts
-- Auth: Clerk JWT validation plus Clerk webhook support
-- Data: SQLite by default, optional MySQL/Postgres-style `DATABASE_URL` support
-- Deployment: Docker, Render, Daphne ASGI
+* Frontend: React 18, React Router, Tailwind CSS, Clerk Auth, Stripe.js, Axios, Recharts
+* Backend: Django, Django REST Framework, Gunicorn (WSGI)
+* Payments: Stripe Payment Intents, Stripe Checkout Subscriptions, Webhooks, Payouts
+* Authentication: Clerk JWT validation & Clerk webhook synchronization
+* Database: SQLite (default), with pluggable support for PostgreSQL/MySQL via DATABASE_URL
+* Deployment: Docker, Gunicorn, Render [1] 
 
 ## Repository Structure
 
-```text
 equipment-rental-saas/
 |-- backend/
+
 |   |-- apps/
 |   |   |-- analytics/
 |   |   |-- bookings/
@@ -28,12 +26,17 @@ equipment-rental-saas/
 |   |   |-- users/
 |   |   `-- vendors/
 |   |-- config/
+|   |   |-- settings.py
+|   |   |-- urls.py
+|   |   `-- wsgi.py
 |   |-- core/
 |   |-- manage.py
 |   |-- requirements.txt
 |   |-- build.sh
+|   |-- Dockerfile
 |   `-- render.yaml
 |-- frontend/
+
 |   |-- public/
 |   |-- src/
 |   |   |-- api/
@@ -48,380 +51,201 @@ equipment-rental-saas/
 |   `-- Dockerfile
 |-- docker-compose.yml
 `-- README.md
-```
 
-## Core Features
+## Core Features## Buyer Experience
 
-### Buyer experience
+* Browse equipment listings with advanced filtration and detailed specification pages.
+* Add date-based items to a localized cart management system.
+* Secure checkout flows processed via Stripe.
+* Comprehensive order history and status tracking via the Buyer Dashboard.
+* Access to customer support chat threads and automated FAQ assistance endpoints.
 
-- Browse equipment listings and detail pages
-- Add date-based items to cart
-- Checkout with Stripe
-- Track orders from buyer dashboard
-- Access chat threads and FAQ assistant endpoints
+## Vendor Experience
 
-### Vendor experience
+* Create, update, and manage asset inventory listings.
+* Track business metrics, bookings, and operational logistics from the Vendor Dashboard.
+* Upgrade to a premium Growth plan through Stripe Checkout subscriptions.
+* Automated subscription session verification to unlock gated vendor features.
+* Manage payout routing and commercial bank account configurations.
 
-- Create and manage inventory listings
-- View bookings and operational activity from the vendor dashboard
-- Upgrade to a paid Growth plan through Stripe Checkout
-- Confirm subscription sessions after checkout and unlock gated vendor capabilities
-- Manage payout data and vendor bank account records
-- Receive live booking events over WebSockets
+## Admin Experience
 
-### Admin experience
+* Vendor verification pipelines and KYC submission management.
+* Marketplace moderation for equipment listings.
+* Centralized control-plane analytics for platform health.
+* Dispute management, support ticket routing, and user audit logs.
 
-- Review vendors and KYC submissions
-- Moderate equipment listings
-- Access control-plane analytics
-- Manage disputes, support tickets, and user actions
+## Platform Services
 
-### Platform services
-
-- Clerk-based auth for API and WebSocket access
-- Stripe webhooks for booking payments and subscription lifecycle events
-- Optional subscription enforcement for vendor listing access
-- Health check endpoint for deployment monitoring
+* Clerk-based secure token authentication for all API endpoints.
+* Stripe Webhook listeners to automate booking fulfillment and subscription lifecycles.
+* Conditional subscription enforcement rules for vendor listing access.
+* Dedicated health check endpoints for automated deployment monitoring.
 
 ## Frontend Routes
+The main React routes are defined in frontend/src/App.jsx.
 
-The main React routes are defined in `frontend/src/App.jsx`.
-
-- `/` and `/equipment`: marketplace home
-- `/equipment/:id`: equipment details
-- `/checkout`: buyer checkout
-- `/pricing`: pricing page
-- `/login`, `/login/buyer`, `/login/vendor`, `/login/admin`: auth entry points
-- `/buyer` and `/dashboard`: buyer dashboard
-- `/vendor`: vendor dashboard
-- `/admin`: admin dashboard
+* / and /equipment: Marketplace discovery home
+* /equipment/:id: Equipment specifications and booking
+* /checkout: Transaction processing
+* /pricing: Tiered vendor subscription plans
+* /login, /login/buyer, /login/vendor, /login/admin: Role-based authentication entry points
+* /buyer and /dashboard: Portal for customer operations
+* /vendor: Portal for supplier operations
+* /admin: Portal for platform moderation
 
 ## Backend API Overview
+The Django API root is mounted under /api/.
 
-The Django API root is mounted under `/api/`.
+* /api/users/: User profile sync and Clerk webhook consumers
+* /api/equipment/: Equipment CRUD, user reviews, wishlists, and cart verification
+* /api/bookings/: Booking state machine and payment intent verification
+* /api/payments/: Stripe setup, subscription sessions, payouts, and bank routing
+* /api/vendors/: Vendor profile compilation and merchant metadata
+* /api/subscriptions/: Subscription tier lookup, usage tracking, and cancellations
+* /api/chat/: Customer support threads, asynchronous messaging, and assistant endpoints
+* /api/control/: Admin moderation, KYC, disputes, and ticket handling
+* /api/analytics/: Multi-tenant business intelligence data
+* /api/recommendations/: Algorithmic cross-selling endpoints
 
-- `/api/users/`: user sync and Clerk webhook flows
-- `/api/equipment/`: equipment CRUD, reviews, wishlist, cart helpers
-- `/api/bookings/`: booking lifecycle and payment confirmation endpoints
-- `/api/payments/`: Stripe checkout, subscription confirmation, payouts, bank account endpoints
-- `/api/vendors/`: vendor profile and related vendor endpoints
-- `/api/subscriptions/`: subscription tiers, usage, upgrade, cancel
-- `/api/chat/`: threads, messages, FAQ, assistant
-- `/api/control/`: admin moderation, KYC, disputes, support tickets
-- `/api/analytics/`: vendor and admin analytics
-- `/api/recommendations/`: recommendation endpoints
+## Operational Endpoints
 
-Operational endpoints:
+* /: Root health status
+* /health/: Automated infrastructure deployment check
+* /admin/: Native Django administration console
 
-- `/`: root health response
-- `/health/`: deployment health check
-- `/admin/`: Django admin
+## Local Development## 1. Environment Cloning
 
-## Local Development
-
-### 1. Clone and enter the project
-
-```bash
 git clone <your-repo-url>
 cd equipment-rental-saas
-```
 
-### 2. Backend setup
+## 2. Backend Setup
 
-```bash
 cd backend
 python -m venv venv
-```
 
 Activate the environment:
 
-- Windows PowerShell: `.\venv\Scripts\Activate.ps1`
-- macOS/Linux: `source venv/bin/activate`
+* Windows (PowerShell): .\venv\Scripts\Activate.ps1
+* macOS/Linux: source venv/bin/activate
 
 Install dependencies and run migrations:
 
-```bash
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
-```
 
-The backend will be available at `http://localhost:8000`.
+The API layer will initialize at http://localhost:8000.
+## 3. Frontend Setup
+Open a separate terminal window:
 
-### 3. Frontend setup
-
-Open a second terminal:
-
-```bash
 cd frontend
 npm install
 npm start
-```
 
-The frontend will be available at `http://localhost:3000`.
-
+The client layer will initialize at http://localhost:3000.
 ## Environment Variables
+Establish local environment settings configuration files before system initialization:
 
-Copy the example env files before starting:
+* Copy backend/.env.example to backend/.env
+* Copy frontend/.env.example to frontend/.env
 
-- `backend/.env.example` -> `backend/.env`
-- `frontend/.env.example` -> `frontend/.env`
+## Backend Configurations (backend/.env)
 
-### Backend variables
-
-Required or important backend settings:
-
-```env
-DJANGO_SECRET_KEY=replace-with-a-long-random-secret
+DJANGO_SECRET_KEY=your-secure-long-random-string
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 DB_ENGINE=sqlite
 DB_SQLITE_PATH=db.sqlite3
 
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-STRIPE_PRICE_ID=
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID=price_...
 STRIPE_CURRENCY=inr
 REQUIRE_VENDOR_SUBSCRIPTION=False
 
-CLERK_JWKS_URL=
-CLERK_ISSUER=
-CLERK_WEBHOOK_SECRET=
+CLERK_JWKS_URL=https://...
+CLERK_ISSUER=https://...
+CLERK_WEBHOOK_SECRET=whsv_...
 
 FRONTEND_URL=http://localhost:3000
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
-REDIS_URL=
-```
+Note: Toggle REQUIRE_VENDOR_SUBSCRIPTION=True to test paywalled features locally.
+## Frontend Configurations (frontend/.env)
 
-Notes:
-
-- `DB_ENGINE=sqlite` is the simplest local setup and is the current default.
-- `DATABASE_URL` or `DB_NAME` can also be used for non-SQLite deployments.
-- `REQUIRE_VENDOR_SUBSCRIPTION=False` is useful in local development; production usually enables it.
-- If `REDIS_URL` is not set, caching and channel layers fall back to local in-memory implementations.
-
-### Frontend variables
-
-```env
 REACT_APP_API_URL=http://localhost:8000/api
-REACT_APP_CLERK_PUBLISHABLE_KEY=
-REACT_APP_STRIPE_PUBLISHABLE_KEY=
-```
-
-## Realtime Behavior
-
-TapRent uses Django Channels for WebSocket traffic.
-
-- ASGI entrypoint: `backend/config/asgi.py`
-- Booking consumers: `backend/apps/bookings/consumers.py`
-- Equipment consumers: `backend/apps/equipment/consumers.py`
-- Frontend socket helper: `frontend/src/lib/realtime.js`
-
-Local development works without Redis using the in-memory channel layer. For multi-instance or production realtime, set `REDIS_URL`.
+REACT_APP_CLERK_PUBLISHABLE_KEY=pk_test_...
+REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_...
 
 ## Stripe Integration
+The platform manages economic value across two main design patterns:
 
-Stripe is used in two main ways:
+   1. Direct Rentals: Ad-hoc booking charges executed via Stripe Payment Intents.
+   2. SaaS Memberships: Recurring Vendor growth strategies using Stripe Checkout subscriptions. [2] 
 
-- Booking payments with Payment Intents
-- Vendor Growth plan billing with Stripe Checkout subscriptions
+## Critical Backend Files
 
-Relevant backend files:
+* backend/apps/bookings/views.py
+* backend/apps/payments/views.py
+* backend/apps/payments/urls.py
 
-- `backend/apps/bookings/views.py`
-- `backend/apps/payments/views.py`
-- `backend/apps/payments/urls.py`
+## Transaction Lifecycle
 
-Important behavior:
+* Successful vendor subscription checkouts return to: /vendor?success=true&session_id={CHECKOUT_SESSION_ID}
+* The React runtime hands this token off to /api/payments/confirm-subscription-session/ for server-side verification.
+* Stripe Webhook events asynchronously update core transactional databases to remain clear of race conditions.
 
-- The vendor plan checkout redirects back to `/vendor?success=true&session_id={CHECKOUT_SESSION_ID}`
-- The frontend confirms that session through `/api/payments/confirm-subscription-session/`
-- Stripe webhooks update payment and subscription state server-side
+To route and capture background asynchronous webhooks locally, configure the Stripe CLI:
 
-For local webhook testing, use the Stripe CLI and point events at:
-
-```text
-http://localhost:8000/api/payments/webhook/
-```
+stripe listen --forward-to localhost:8000/api/payments/webhook/
 
 ## Clerk Integration
+User identities are managed externally through Clerk, enforcing absolute perimeter security.
 
-Clerk handles identity on the frontend and token verification on the backend.
+* Frontend Identity Provider: Enwrapped within frontend/src/App.jsx.
+* Backend Authentication Guard: Handled cleanly through backend/core/authentication/clerk_auth.py.
 
-- Frontend provider: `frontend/src/App.jsx`
-- Backend auth class: `backend/core/authentication/clerk_auth.py`
-- WebSocket auth: `backend/core/authentication/websocket_auth.py`
+To ensure consistent token handshakes:
 
-To make authenticated API requests work correctly:
+* Provide REACT_APP_CLERK_PUBLISHABLE_KEY on your client runtime.
+* Provide validated CLERK_JWKS_URL and CLERK_ISSUER parameters on the backend settings file.
 
-- set `REACT_APP_CLERK_PUBLISHABLE_KEY` in the frontend
-- set `CLERK_JWKS_URL` and `CLERK_ISSUER` in the backend
-- set `CLERK_WEBHOOK_SECRET` if you use Clerk webhook syncing
+## Data Utilities and Engine Conversions
+The architecture cleanly decouples the application engine from database storage backends:
 
-## Data and Database Notes
+* Local setups run seamlessly on lightweight SQLite via DB_ENGINE=sqlite.
+* Advanced environments parse connection parameters instantly from the standard DATABASE_URL.
 
-The current backend settings support:
+A native database utility has been packaged to easily ingest historical system structures:
 
-- SQLite via `DB_ENGINE=sqlite`
-- `DATABASE_URL` parsing for hosted databases
-- explicit MySQL config via `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
-
-There is also a one-time migration command for importing legacy MySQL data into SQLite:
-
-```bash
 cd backend
 python manage.py migrate_mysql_to_sqlite
-```
 
-This uses the `MYSQL_SOURCE_*` settings from `backend/.env`.
+Note: Ensure source connection credentials are set inside MYSQL_SOURCE_* environments before execution.
+## Docker & Production Gunicorn Orchestration
+The project provides a multi-container Docker environment optimized for local development simulations and production parity.
+In production environments or standard container builds, the backend uses Gunicorn to serve the application via the native WSGI compliance layer (config.wsgi:application).
+## Docker Compose
+To launch the frontend client and the WSGI backend server together, execute:
 
-## Docker
-
-The repo includes a root `docker-compose.yml` with three services:
-
-- `redis`
-- `backend`
-- `frontend`
-
-To run the full stack with Docker:
-
-```bash
 docker compose up --build
-```
 
-Default exposed ports:
+## Reference Dockerfile Strategy (backend/Dockerfile)
+The backend image is structured to explicitly bind Gunicorn to the WSGI application endpoint:
 
-- Frontend: `3000`
-- Backend: `8000`
-- Redis: `6379`
+FROM python:3.11-slim
+WORKDIR /appCOPY requirements.txt .RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 8000CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "config.wsgi:application"]
+
+## Port Allocation Assignments
+
+* Frontend App Interface: Exposed via port 3000
+* Backend Gunicorn REST API Engine: Exposed via port 8000 [3] 
 
 ## Render Deployment
-<<<<<<< HEAD
-
-The backend includes `backend/render.yaml` and `backend/build.sh`.
-
-Production behavior:
-
-- build command installs requirements, collects static files, and runs migrations
-- start command uses Daphne: `daphne -b 0.0.0.0 -p $PORT config.asgi:application`
-- a persistent disk is configured for SQLite in the provided Render blueprint
-
-If you deploy the frontend separately, make sure:
-
-- `FRONTEND_URL` on the backend matches the deployed frontend origin
-- `CORS_ALLOWED_ORIGINS` and `CSRF_TRUSTED_ORIGINS` include the frontend domain
-- `REACT_APP_API_URL` on the frontend points to the deployed backend `/api`
-
-## Useful Commands
-
-Backend:
-
-```bash
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-python manage.py collectstatic --no-input
-```
-
-Frontend:
-
-```bash
-npm start
-npm run build
-npm test
-```
-
-## Current Project Notes
-
-- Recommendations endpoints currently return placeholder/mock responses.
-- Redis is optional locally but recommended for production realtime workloads.
-- Stripe subscription activation depends on both checkout confirmation and webhook/state sync.
-- Vendor subscription enforcement can be toggled via `REQUIRE_VENDOR_SUBSCRIPTION`.
-
-=======
-
-The backend includes `backend/render.yaml` and `backend/build.sh`.
-
-Production behavior:
-
-- build command installs requirements, collects static files, and runs migrations
-- start command uses Daphne: `daphne -b 0.0.0.0 -p $PORT config.asgi:application`
-- a persistent disk is configured for SQLite in the provided Render blueprint
-
-If you deploy the frontend separately, make sure:
-
-- `FRONTEND_URL` on the backend matches the deployed frontend origin
-- `CORS_ALLOWED_ORIGINS` and `CSRF_TRUSTED_ORIGINS` include the frontend domain
-- `REACT_APP_API_URL` on the frontend points to the deployed backend `/api`
-
-## Useful Commands
-
-Backend:
-
-```bash
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-python manage.py collectstatic --no-input
-```
-
-Frontend:
-
-```bash
-npm start
-npm run build
-npm test
-```
-
-## Current Project Notes
-
-- Recommendations endpoints currently return placeholder/mock responses.
-- Redis is optional locally but recommended for production realtime workloads.
-- Stripe subscription activation depends on both checkout confirmation and webhook/state sync.
-- Vendor subscription enforcement can be toggled via `REQUIRE_VENDOR_SUBSCRIPTION`.
-
-## Troubleshooting
-
-### Frontend cannot reach backend
-
-Check:
-
-- `REACT_APP_API_URL`
-- backend `CORS_ALLOWED_ORIGINS`
-- backend `CSRF_TRUSTED_ORIGINS`
-- that the backend is serving `/health/`
-
-### Clerk-authenticated requests fail
-
-Check:
-
-- frontend publishable key
-- backend `CLERK_JWKS_URL`
-- backend `CLERK_ISSUER`
-- that the user token is being attached on requests
-
-### Stripe checkout succeeds but vendor plan is not active
-
-Check:
-
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRICE_ID` or the default fallback subscription pricing in `backend/apps/payments/views.py`
-- that the frontend receives a `session_id` and calls `/api/payments/confirm-subscription-session/`
-- webhook delivery for subscription events
-
-### Realtime updates do not appear
-
-Check:
-
-- ASGI/Daphne is running, not just WSGI
-- WebSocket auth is configured correctly
-- `REDIS_URL` is set in distributed environments
-
-## License
-
-Add your preferred license here if this project is being distributed publicly.
->>>>>>> 4ee96c0 (updated code)
+The backend application contains optimized infrastructure settings within backend/render.yaml using Gunicorn execution paths to facilitate rapid, zero-downtime server setups on standard cloud runtimes.
+------------------------------
