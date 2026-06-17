@@ -225,26 +225,6 @@ cd backend
 python manage.py migrate_mysql_to_sqlite
 
 Note: Ensure source connection credentials are set inside MYSQL_SOURCE_* environments before execution.
-## Docker & Production Gunicorn Orchestration
-The project provides a multi-container Docker environment optimized for local development simulations and production parity.
-In production environments or standard container builds, the backend uses Gunicorn to serve the application via the native WSGI compliance layer (config.wsgi:application).
-## Docker Compose
-To launch the frontend client and the WSGI backend server together, execute:
-
-docker compose up --build
-
-## Reference Dockerfile Strategy (backend/Dockerfile)
-The backend image is structured to explicitly bind Gunicorn to the WSGI application endpoint:
-
-FROM python:3.11-slim
-WORKDIR /appCOPY requirements.txt .RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8000CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "config.wsgi:application"]
-
-## Port Allocation Assignments
-
-* Frontend App Interface: Exposed via port 3000
-* Backend Gunicorn REST API Engine: Exposed via port 8000 [3] 
 
 ## Render Deployment
 The backend application contains optimized infrastructure settings within backend/render.yaml using Gunicorn execution paths to facilitate rapid, zero-downtime server setups on standard cloud runtimes.
