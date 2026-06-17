@@ -7,7 +7,7 @@ TapRent is a professional full-stack equipment rental marketplace built with Rea
 * Payments: Stripe Payment Intents, Stripe Checkout Subscriptions, Webhooks, Payouts
 * Authentication: Clerk JWT validation & Clerk webhook synchronization
 * Database: SQLite (default), with pluggable support for PostgreSQL/MySQL via DATABASE_URL
-* Deployment: Docker, Gunicorn, Render [1] 
+* Deployment: Render [1] 
 
 ## Repository Structure
 
