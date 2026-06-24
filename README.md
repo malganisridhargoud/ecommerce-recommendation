@@ -1,227 +1,144 @@
-## TapRent SaaS
-TapRent is a professional full-stack equipment rental marketplace built with React and Django. The platform seamlessly handles buyer bookings, vendor inventory management, Stripe-powered payments and subscriptions, role-based dashboards, Clerk authentication, and comprehensive admin moderation tooling.
-## Stack
+# TapRent | Premium Equipment Rental Marketplace SaaS
 
-* Frontend: React 18, React Router, Tailwind CSS, Clerk Auth, Stripe.js, Axios, Recharts
-* Backend: Django, Django REST Framework, Gunicorn (WSGI)
-* Payments: Stripe Payment Intents, Stripe Checkout Subscriptions, Webhooks, Payouts
-* Authentication: Clerk JWT validation & Clerk webhook synchronization
-* Database: SQLite (default), with pluggable support for PostgreSQL/MySQL via DATABASE_URL
-* Deployment: Render [1] 
+![React](https://img.shields.io/badge/React-18.0-blue)
+![Django](https://img.shields.io/badge/Django-REST_Framework-092E20)
+![Stripe](https://img.shields.io/badge/Payments-Stripe-indigo)
+![Clerk](https://img.shields.io/badge/Auth-Clerk-6C47FF)
+![Bootstrap](https://img.shields.io/badge/UI-Bootstrap_5-purple)
 
-## Repository Structure
+TapRent is a professional, full-stack, multi-tenant marketplace connecting owners of idle professional equipment with users who need short-term access. It features a conflict-free booking engine, tiered vendor SaaS subscriptions, and dynamic surge pricing.
+---
 
-equipment-rental-saas/
-|-- backend/
+## 🌍 The Real-World Problem We Solve
 
-|   |-- apps/
-|   |   |-- analytics/
-|   |   |-- bookings/
-|   |   |-- communications/
-|   |   |-- control/
-|   |   |-- equipment/
-|   |   |-- payments/
-|   |   |-- recommendations/
-|   |   |-- subscriptions/
-|   |   |-- users/
-|   |   `-- vendors/
-|   |-- config/
-|   |   |-- settings.py
-|   |   |-- urls.py
-|   |   `-- wsgi.py
-|   |-- core/
-|   |-- manage.py
-|   |-- requirements.txt
-|   |-- build.sh
-|   |-- Dockerfile
-|   `-- render.yaml
-|-- frontend/
+**The Core Issue:** Professional equipment (high-end cameras, construction gear, event lighting, medical tools) is incredibly expensive to purchase outright, depreciates rapidly, and often sits idle in storage for 80% of its lifespan. 
 
-|   |-- public/
-|   |-- src/
-|   |   |-- api/
-|   |   |-- components/
-|   |   |-- context/
-|   |   |-- lib/
-|   |   |-- pages/
-|   |   |-- routes/
-|   |   |-- App.jsx
-|   |   `-- index.js
-|   |-- package.json
-|   `
-|
-`-- README.md
+Conversely, creators, contractors, and event organizers frequently need temporary access to specialized gear but cannot justify the crippling upfront capital expenditure. 
 
-## Core Features## Buyer Experience
+**The Current Landscape is Broken:**
+- **Inefficient:** Existing rental businesses rely on manual phone calls, spreadsheets, and fragmented physical storefronts.
+- **Risky:** Peer-to-peer sharing lacks secure escrow payments, identity verification, and conflict-free booking guarantees (leading to double-bookings).
+- **Poor UX:** Outdated digital catalogs make discovery and checkout frustrating for modern consumers.
 
-* Browse equipment listings with advanced filtration and detailed specification pages.
-* Add date-based items to a localized cart management system.
-* Secure checkout flows processed via Stripe.
-* Comprehensive order history and status tracking via the Buyer Dashboard.
-* Access to customer support chat threads and automated FAQ assistance endpoints.
+## 💡 The TapRent Solution
 
-## Vendor Experience
+TapRent democratizes access to professional gear by transforming idle assets into revenue streams. It provides a centralized, secure, and Apple-inspired marketplace that abstracts away the complexities of scheduling, payment routing, and trust. 
 
-* Create, update, and manage asset inventory listings.
-* Track business metrics, bookings, and operational logistics from the Vendor Dashboard.
-* Upgrade to a premium Growth plan through Stripe Checkout subscriptions.
-* Automated subscription session verification to unlock gated vendor features.
-* Manage payout routing and commercial bank account configurations.
+* **For Renters (Buyers):** Instant access to a massive catalog of local gear, secured by Stripe escrow, with automated availability checks and transparent dynamic pricing.
+* **For Owners (Vendors):** A powerful "business-in-a-box" dashboard to manage fleet inventory, track revenue analytics, and scale their rental operations. 
 
-## Admin Experience
+---
 
-* Vendor verification pipelines and KYC submission management.
-* Marketplace moderation for equipment listings.
-* Centralized control-plane analytics for platform health.
-* Dispute management, support ticket routing, and user audit logs.
+## 🔄 End-to-End Workflow
 
-## Platform Services
+The platform operates on a multi-role architecture, ensuring a seamless lifecycle from listing to return.
 
-* Clerk-based secure token authentication for all API endpoints.
-* Stripe Webhook listeners to automate booking fulfillment and subscription lifecycles.
-* Conditional subscription enforcement rules for vendor listing access.
-* Dedicated health check endpoints for automated deployment monitoring.
+### 1. The Vendor Journey (Supply Side)
+1. **Onboarding:** A user signs up via Clerk Authentication and selects the "Vendor" role.
+2. **SaaS Subscription:** To unlock unlimited listings and advanced analytics, the vendor subscribes to the **TapRent Vendor Pro** plan (billed monthly via Stripe Checkout).
+3. **Fleet Management:** The vendor lists their equipment, setting base prices, images, and inventory quantities.
+4. **Order Fulfillment:** When a booking occurs, the vendor uses their dashboard Kanban board to transition the order state: `Pending` → `Confirmed` → `Shipped` → `Delivered` → `Completed`.
 
-## Frontend Routes
-The main React routes are defined in frontend/src/App.jsx.
+### 2. The Buyer Journey (Demand Side)
+1. **Discovery:** Buyers browse the marketplace to discover relevant gear.
+2. **Conflict-Free Booking:** The buyer selects rental dates. The backend instantly calculates dynamic pricing (applying multi-day discounts or weekend surges) and verifies inventory availability.
+3. **Secure Checkout:** The buyer pays via Stripe Payment Intents or Cash on Delivery.
+4. **Reputation Loop:** Once the vendor marks the item as `Delivered`, the buyer can leave a verified rating and review, powering the platform's trust ecosystem.
 
-* / and /equipment: Marketplace discovery home
-* /equipment/:id: Equipment specifications and booking
-* /checkout: Transaction processing
-* /pricing: Tiered vendor subscription plans
-* /login, /login/buyer, /login/vendor, /login/admin: Role-based authentication entry points
-* /buyer and /dashboard: Portal for customer operations
-* /vendor: Portal for supplier operations
-* /admin: Portal for platform moderation
+---
 
-## Backend API Overview
-The Django API root is mounted under /api/.
+## 🏗️ Architecture & Tech Stack
 
-* /api/users/: User profile sync and Clerk webhook consumers
-* /api/equipment/: Equipment CRUD, user reviews, wishlists, and cart verification
-* /api/bookings/: Booking state machine and payment intent verification
-* /api/payments/: Stripe setup, subscription sessions, payouts, and bank routing
-* /api/vendors/: Vendor profile compilation and merchant metadata
-* /api/subscriptions/: Subscription tier lookup, usage tracking, and cancellations
-* /api/chat/: Customer support threads, asynchronous messaging, and assistant endpoints
-* /api/control/: Admin moderation, KYC, disputes, and ticket handling
-* /api/analytics/: Multi-tenant business intelligence data
-* /api/recommendations/: Algorithmic cross-selling endpoints
+The application strictly separates the client presentation layer from the core business logic.
 
-## Operational Endpoints
+### Frontend (Client)
+- **Framework:** React 18 (Create React App)
+- **Routing:** React Router v6
+- **Styling:** Bootstrap 5 (Utility-first, heavily customized with a premium Slate & Indigo design system via `index.css`)
+- **State/API:** Axios interceptors, React context
 
-* /: Root health status
-* /health/: Automated infrastructure deployment check
-* /admin/: Native Django administration console
+### Backend (API Server)
+- **Framework:** Django 5.x & Django REST Framework
+- **Database:** SQLite (local development) / MYSQL
+- **Booking Engine:** Custom transactional locking system using database-level `SELECT FOR UPDATE`.
 
-## Local Development## 1. Environment Cloning
+### External Services
+- **Identity & Auth:** Clerk (JWT validation)
+- **Payments:** Stripe (Payment Intents for rentals, Checkout Sessions for SaaS tiers)
 
+---
+
+## ⚙️ Core Systems Deep Dive
+
+### 1. The Booking Engine (Race-Condition Proof)
+Preventing double-bookings is critical. When a user attempts to checkout, the backend utilizes `transaction.atomic()` and `select_for_update()`. This locks the specific equipment row in the database. The system then queries all active overlapping bookings using inclusive bounds (`Q(start_date__lte=end_date) & Q(end_date__gte=start_date)`). If the overlapping count exceeds the physical `quantity` of the item, the transaction is safely aborted with a `409 Conflict`.
+
+### 2. Dynamic Pricing Engine
+The API automatically calculates fair pricing based on market conditions:
+- **Multi-day discounts:** 5% off per full week booked (capped at 25%).
+- **Weekend Surges:** +10% if the booking touches a Saturday or Sunday.
+- **High-Demand Surges:** +20% if over 60% of the fleet for that item is currently booked.
+
+### 3. Service-Oriented Refactoring
+Business logic (like Stripe payment captures, complex cart iterations, and refund processing) is cleanly decoupled from HTTP Request/Response views. Controllers in `views.py` delegate heavy lifting to isolated functions in `services.py`, adhering to clean architecture principles.
+
+---
+
+## 💻 Local Development Guide
+
+### 1. Repository Setup
+```bash
 git clone <your-repo-url>
-cd equipment-rental-saas
+cd taprent/ecommerce-recommendation
+```
 
-## 2. Backend Setup
-
+### 2. Backend Setup
+```bash
 cd backend
 python -m venv venv
 
-Activate the environment:
-
-* Windows (PowerShell): .\venv\Scripts\Activate.ps1
-* macOS/Linux: source venv/bin/activate
-
-Install dependencies and run migrations:
+# Activate Environment
+# Windows: .\venv\Scripts\Activate.ps1
+# Mac/Linux: source venv/bin/activate
 
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
+```
+*The API will be available at `http://localhost:8000/api/`*
 
-The API layer will initialize at http://localhost:8000.
-## 3. Frontend Setup
-Open a separate terminal window:
-
+### 3. Frontend Setup
+Open a new terminal window:
+```bash
 cd frontend
 npm install
 npm start
+```
+*The React application will be available at `http://localhost:3000`*
 
-The client layer will initialize at http://localhost:3000.
-## Environment Variables
-Establish local environment settings configuration files before system initialization:
+### 4. Environment Variables
+You must configure your `.env` files for the platform to function.
 
-* Copy backend/.env.example to backend/.env
-* Copy frontend/.env.example to frontend/.env
-
-## Backend Configurations (backend/.env)
-
-DJANGO_SECRET_KEY=your-secure-long-random-string
+**`backend/.env`**
+```ini
+DJANGO_SECRET_KEY=your_secret_key
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-
-DB_ENGINE=sqlite
-DB_SQLITE_PATH=db.sqlite3
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_ID=price_...
 STRIPE_CURRENCY=inr
 REQUIRE_VENDOR_SUBSCRIPTION=False
 
 CLERK_JWKS_URL=https://...
 CLERK_ISSUER=https://...
-CLERK_WEBHOOK_SECRET=whsv_...
+```
 
-FRONTEND_URL=http://localhost:3000
-
-Note: Toggle REQUIRE_VENDOR_SUBSCRIPTION=True to test paywalled features locally.
-## Frontend Configurations (frontend/.env)
-
+**`frontend/.env`**
+```ini
 REACT_APP_API_URL=http://localhost:8000/api
 REACT_APP_CLERK_PUBLISHABLE_KEY=pk_test_...
 REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
 
-## Stripe Integration
-The platform manages economic value across two main design patterns:
-
-   1. Direct Rentals: Ad-hoc booking charges executed via Stripe Payment Intents.
-   2. SaaS Memberships: Recurring Vendor growth strategies using Stripe Checkout subscriptions. [2] 
-
-## Critical Backend Files
-
-* backend/apps/bookings/views.py
-* backend/apps/payments/views.py
-* backend/apps/payments/urls.py
-
-## Transaction Lifecycle
-
-* Successful vendor subscription checkouts return to: /vendor?success=true&session_id={CHECKOUT_SESSION_ID}
-* The React runtime hands this token off to /api/payments/confirm-subscription-session/ for server-side verification.
-* Stripe Webhook events asynchronously update core transactional databases to remain clear of race conditions.
-
-To route and capture background asynchronous webhooks locally, configure the Stripe CLI:
-
-stripe listen --forward-to localhost:8000/api/payments/webhook/
-
-## Clerk Integration
-User identities are managed externally through Clerk, enforcing absolute perimeter security.
-
-* Frontend Identity Provider: Enwrapped within frontend/src/App.jsx.
-* Backend Authentication Guard: Handled cleanly through backend/core/authentication/clerk_auth.py.
-
-To ensure consistent token handshakes:
-
-* Provide REACT_APP_CLERK_PUBLISHABLE_KEY on your client runtime.
-* Provide validated CLERK_JWKS_URL and CLERK_ISSUER parameters on the backend settings file.
-
-## Data Utilities and Engine Conversions
-The architecture cleanly decouples the application engine from database storage backends:
-
-* Local setups run seamlessly on lightweight SQLite via DB_ENGINE=sqlite.
-* Advanced environments parse connection parameters instantly from the standard DATABASE_URL.
-
-A native database utility has been packaged to easily ingest historical system structures:
-
-cd backend
-python manage.py migrate_mysql_to_sqlite
-
-Note: Ensure source connection credentials are set inside MYSQL_SOURCE_* environments before execution.

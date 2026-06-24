@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from .models import SubscriptionTier, VendorSubscription
-from apps.equipment.models import Vendor
 
 
 class SubscriptionTierSerializer(serializers.ModelSerializer):

@@ -20,7 +20,6 @@ export function AppPreferencesProvider({ children }) {
   const [language, setLanguage] = useState(localStorage.getItem("app_language") || "en");
   const [location, setLocation] = useState(localStorage.getItem("app_location") || "");
   const [cartCount, setCartCount] = useState(0);
-  const [unreadMessages, setUnreadMessages] = useState(0);
 
   const setLanguagePersisted = (value) => {
     setLanguage(value);
@@ -41,12 +40,11 @@ export function AppPreferencesProvider({ children }) {
       setLocation: setLocationPersisted,
       cartCount,
       setCartCount,
-      unreadMessages,
-      setUnreadMessages,
+
       languageOptions: LANGUAGE_OPTIONS,
       t,
     }),
-    [language, location, cartCount, unreadMessages, t]
+    [language, location, cartCount, t]
   );
 
   return <AppPreferencesContext.Provider value={value}>{children}</AppPreferencesContext.Provider>;

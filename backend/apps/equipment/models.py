@@ -1,12 +1,6 @@
 from django.db import models
 
 
-class KYCStatus(models.TextChoices):
-    NOT_STARTED = "not_started", "Not Started"
-    PENDING = "pending", "Pending Verification"
-    VERIFIED = "verified", "Verified"
-    REJECTED = "rejected", "Rejected"
-
 
 class Vendor(models.Model):
     user_id = models.CharField(max_length=255, unique=True)  # Clerk user ID
@@ -15,9 +9,7 @@ class Vendor(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     subscription_active = models.BooleanField(default=False)
     subscription_id = models.CharField(max_length=255, blank=True)
-    kyc_status = models.CharField(
-        max_length=20, choices=KYCStatus.choices, default=KYCStatus.NOT_STARTED
-    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -47,13 +39,7 @@ class Equipment(models.Model):
     vendor = models.ForeignKey(
         Vendor, on_delete=models.CASCADE, related_name="equipment_list"
     )
-    subscription = models.ForeignKey(
-        "subscriptions.VendorSubscription",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="equipment"
-    )
+
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     category = models.CharField(
@@ -106,27 +92,6 @@ class Review(models.Model):
     def __str__(self):
         return f"Review {self.equipment_id} by {self.user_id}"
 
-
-class ReviewComment(models.Model):
-    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="comments")
-    user_id = models.CharField(max_length=255)
-    parent = models.ForeignKey(
-        "self",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="replies",
-    )
-    comment = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "review_comments"
-        ordering = ["created_at"]
-
-    def __str__(self):
-        return f"ReviewComment {self.id} by {self.user_id}"
 
 
 class WishlistItem(models.Model):

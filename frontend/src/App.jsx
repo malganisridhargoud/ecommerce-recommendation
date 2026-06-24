@@ -9,18 +9,20 @@ import Home from "./pages/Home";
 import EquipmentDetail from "./pages/EquipmentDetail";
 import Checkout from "./pages/Checkout";
 import Login from "./pages/Login";
-import AdminLogin from "./pages/AdminLogin";
 import BuyerDashboard from "./pages/BuyerDashboard";
 import VendorDashboard from "./pages/VendorDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
 import OrderSuccess from "./pages/OrderSuccess";
-import PricingPage from "./pages/PricingPage";
-import BlogPostPage from "./pages/BlogPostPage";
 import RoleAuth from "./pages/RoleAuth";
 import NotFound from "./pages/NotFound";
 import { AppPreferencesProvider } from "./context/AppPreferencesContext";
 
-const clerkPub = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY || "pk_test_placeholder";
+const clerkPub = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
+if (!clerkPub) {
+  console.error(
+    "[TapRent] REACT_APP_CLERK_PUBLISHABLE_KEY is not set. " +
+    "Add it to frontend/.env and restart the dev server."
+  );
+}
 
 export default function App() {
   return (
@@ -34,11 +36,9 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/login/buyer" element={<RoleAuth role="buyer" />} />
               <Route path="/login/vendor" element={<RoleAuth role="vendor" />} />
-              <Route path="/login/admin" element={<AdminLogin />} />
+
               <Route path="/equipment/:id" element={<EquipmentDetail />} />
               <Route path="/checkout" element={<Checkout />} />
-              <Route path="/pricing" element={<PricingPage />} />
-              <Route path="/blog/booking-conflict-detection" element={<BlogPostPage />} />
 
               <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
                 <Route path="/dashboard" element={<BuyerDashboard />} />
@@ -50,9 +50,7 @@ export default function App() {
                 <Route path="/vendor" element={<VendorDashboard />} />
               </Route>
 
-              <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-                <Route path="/admin" element={<AdminDashboard />} />
-              </Route>
+
 
               <Route path="*" element={<NotFound />} />
             </Route>

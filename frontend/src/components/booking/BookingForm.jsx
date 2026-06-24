@@ -42,29 +42,14 @@ function StripePayForm({ clientSecret, onPaid }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 animate-fade-in">
-      <div className="p-4 bg-[#f5f5f7] rounded-2xl border border-gray-200">
-        <PaymentElement options={{
-          layout: 'tabs',
-          appearance: {
-            theme: 'none',
-            variables: {
-              colorPrimary: '#0071e3',
-              colorBackground: '#ffffff',
-              colorText: '#1d1d1f',
-              colorDanger: '#d70015',
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              spacingUnit: '4px',
-              borderRadius: '12px',
-            }
-          }
-        }}
-        />
+    <form onSubmit={handleSubmit} className="mt-4">
+      <div className="p-3 bg-light rounded border mb-3">
+        <PaymentElement options={{ layout: 'tabs' }} />
       </div>
       <button
         type="submit"
         disabled={submitting || !stripe}
-        className="mt-4 w-full rounded-full bg-[#1d1d1f] py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+        className="btn btn-dark w-100 py-2 d-flex justify-content-center align-items-center gap-2"
       >
         {submitting ? "Processing Securely..." : "Complete Payment"}
         {!submitting && <FiCheckCircle />}
@@ -164,62 +149,68 @@ export default function BookingForm({ equipment, onBooked }) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="d-flex flex-column gap-4">
       {!booking && (
         <>
           {/* Dates Section */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <FiCalendar className="text-[#0071e3]" />
-              <h4 className="text-sm font-semibold text-[#1d1d1f]">Rental Period</h4>
+            <div className="d-flex align-items-center gap-2 mb-2">
+              <FiCalendar className="text-primary" />
+              <h5 className="mb-0 fs-6">Rental Period</h5>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="relative border border-gray-200 rounded-xl bg-[#f5f5f7] focus-within:bg-white focus-within:border-[#0071e3] focus-within:ring-1 focus-within:ring-[#0071e3] transition-all">
-                <label className="absolute top-1.5 left-3 text-[10px] font-semibold text-[#86868b] uppercase tracking-wide">Start</label>
-                <input
-                  type="date"
-                  min={today}
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    if (endDate && new Date(e.target.value) > new Date(endDate)) setEndDate("");
-                  }}
-                  className="w-full h-12 bg-transparent border-none text-sm font-medium pt-4 px-3 focus:outline-none"
-                />
+            <div className="row g-2">
+              <div className="col-6">
+                <div className="form-floating border rounded">
+                  <input
+                    type="date"
+                    id="startDate"
+                    min={today}
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      if (endDate && new Date(e.target.value) > new Date(endDate)) setEndDate("");
+                    }}
+                    className="form-control border-0"
+                  />
+                  <label htmlFor="startDate">Start Date</label>
+                </div>
               </div>
-              <div className="relative border border-gray-200 rounded-xl bg-[#f5f5f7] focus-within:bg-white focus-within:border-[#0071e3] focus-within:ring-1 focus-within:ring-[#0071e3] transition-all">
-                <label className="absolute top-1.5 left-3 text-[10px] font-semibold text-[#86868b] uppercase tracking-wide">End</label>
-                <input
-                  type="date"
-                  min={startDate || today}
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full h-12 bg-transparent border-none text-sm font-medium pt-4 px-3 focus:outline-none"
-                />
+              <div className="col-6">
+                <div className="form-floating border rounded">
+                  <input
+                    type="date"
+                    id="endDate"
+                    min={startDate || today}
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="form-control border-0"
+                  />
+                  <label htmlFor="endDate">End Date</label>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Pricing Summary */}
           {days > 0 && (
-            <div className="bg-[#f5f5f7] rounded-2xl p-4 animate-slide-up border border-gray-200/60">
-              <div className="space-y-2 mb-3 pb-3 border-b border-gray-200">
-                <div className="flex justify-between text-sm text-[#1d1d1f]">
+            <div className="bg-light rounded p-3 border">
+              <div className="mb-3 pb-3 border-bottom">
+                <div className="d-flex justify-content-between mb-2 small">
                   <span>₹{Number(equipment.price_per_day).toLocaleString("en-IN")} x {days} day{days !== 1 ? 's' : ''}</span>
-                  <span className="font-medium">₹{base.toLocaleString("en-IN")}</span>
+                  <span className="fw-medium">₹{base.toLocaleString("en-IN")}</span>
                 </div>
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
+                  <div className="d-flex justify-content-between mb-2 small text-success">
                     <span>Long rental discount</span>
                     <span>-₹{discountAmount.toLocaleString("en-IN")}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm text-[#86868b]">
+                <div className="d-flex justify-content-between small text-secondary">
                   <span>Platform fee</span>
                   <span>Free</span>
                 </div>
               </div>
-              <div className="flex justify-between font-bold text-lg text-[#1d1d1f]">
+              <div className="d-flex justify-content-between fw-bold">
                 <span>Total</span>
                 <span>₹{total.toLocaleString("en-IN")}</span>
               </div>
@@ -228,16 +219,16 @@ export default function BookingForm({ equipment, onBooked }) {
 
           {/* Delivery Configuration */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <FiMapPin className="text-[#0071e3]" />
-              <h4 className="text-sm font-semibold text-[#1d1d1f]">Delivery Details</h4>
+            <div className="d-flex align-items-center gap-2 mb-2">
+              <FiMapPin className="text-primary" />
+              <h5 className="mb-0 fs-6">Delivery Details</h5>
             </div>
 
             {addresses.length > 0 ? (
               <select
                 value={addressId}
                 onChange={(e) => setAddressId(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-[#f5f5f7] px-4 py-3.5 text-sm font-medium text-[#1d1d1f] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0071e3] focus:border-[#0071e3] transition-all"
+                className="form-select"
               >
                 <option value="">Select delivery address...</option>
                 {addresses.map((a) => (
@@ -247,11 +238,11 @@ export default function BookingForm({ equipment, onBooked }) {
                 ))}
               </select>
             ) : (
-              <div className="rounded-xl border border-gray-200 bg-[#f5f5f7] p-4 text-center">
-                <p className="text-sm text-[#86868b] mb-2">No addresses found</p>
+              <div className="border rounded bg-light p-3 text-center">
+                <p className="small text-secondary mb-2">No addresses found</p>
                 <button
                   onClick={() => window.open("/buyer?tab=addresses", "_blank")}
-                  className="text-sm font-semibold text-[#0071e3] hover:underline"
+                  className="btn btn-link btn-sm text-decoration-none"
                 >
                   Add address in Dashboard
                 </button>
@@ -261,25 +252,29 @@ export default function BookingForm({ equipment, onBooked }) {
 
           {/* Payment Method */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <FiCreditCard className="text-[#0071e3]" />
-              <h4 className="text-sm font-semibold text-[#1d1d1f]">Payment Method</h4>
+            <div className="d-flex align-items-center gap-2 mb-2">
+              <FiCreditCard className="text-primary" />
+              <h5 className="mb-0 fs-6">Payment Method</h5>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("stripe")}
-                className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-all ${paymentMethod === "stripe" ? "border-[#0071e3] bg-[#0071e3]/10 text-[#0071e3] ring-1 ring-[#0071e3]" : "border-gray-200 bg-[#f5f5f7] text-[#1d1d1f] hover:bg-gray-100"}`}
-              >
-                Card / NetBanking
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("cod")}
-                className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-all ${paymentMethod === "cod" ? "border-[#0071e3] bg-[#0071e3]/10 text-[#0071e3] ring-1 ring-[#0071e3]" : "border-gray-200 bg-[#f5f5f7] text-[#1d1d1f] hover:bg-gray-100"}`}
-              >
-                Pay on Delivery
-              </button>
+            <div className="row g-2">
+              <div className="col-6">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("stripe")}
+                  className={`btn w-100 ${paymentMethod === "stripe" ? "btn-primary" : "btn-outline-secondary"}`}
+                >
+                  Card / NetBanking
+                </button>
+              </div>
+              <div className="col-6">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("cod")}
+                  className={`btn w-100 ${paymentMethod === "cod" ? "btn-primary" : "btn-outline-secondary"}`}
+                >
+                  Pay on Delivery
+                </button>
+              </div>
             </div>
           </div>
 
@@ -287,7 +282,7 @@ export default function BookingForm({ equipment, onBooked }) {
             type="button"
             onClick={handleCreateBooking}
             disabled={creating || days === 0}
-            className="w-full rounded-full bg-[#0071e3] py-3.5 text-[15px] font-semibold text-white shadow-[0_2px_8px_rgba(0,113,227,0.3)] transition-all hover:bg-[#0077ed] hover:shadow-[0_4px_12px_rgba(0,113,227,0.4)] disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed mt-2"
+            className="btn btn-dark w-100 py-2 mt-2"
           >
             {creating ? "Processing..." : "Continue to Book"}
           </button>
@@ -296,7 +291,7 @@ export default function BookingForm({ equipment, onBooked }) {
 
       {/* Stripe Payment Integration */}
       {paymentMethod === "stripe" && !stripeKey && (
-        <div className="p-4 bg-red-50 rounded-xl border border-red-200 text-red-700 text-sm mb-4">
+        <div className="alert alert-danger p-2 small mb-0">
           Stripe is not configured. Please set <code>REACT_APP_STRIPE_PUBLISHABLE_KEY</code> in your environment.
         </div>
       )}

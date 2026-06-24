@@ -14,7 +14,6 @@ from .views import (
     CartItemDetailView,
     VendorSeedProductsView,
     VendorReviewReplyView,
-    ReviewCommentListCreateView,
 )
 
 urlpatterns = [
@@ -26,7 +25,7 @@ urlpatterns = [
     path("reviews/my/", BuyerReviewListView.as_view(), name="buyer-review-list"),
     path("seed-sample/", VendorSeedProductsView.as_view(), name="vendor-seed-products"),
     path("reviews/<int:review_id>/reply/", VendorReviewReplyView.as_view(), name="vendor-review-reply"),
-    path("reviews/<int:review_id>/comments/", ReviewCommentListCreateView.as_view(), name="review-comments"),
+
     path("wishlist/", WishlistListCreateView.as_view(), name="wishlist-list-create"),
     path("wishlist/<int:equipment_id>/", WishlistDeleteView.as_view(), name="wishlist-delete"),
     path("cart/", CartListCreateView.as_view(), name="cart-list-create"),

@@ -2,18 +2,15 @@ import stripe
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.conf import settings
-from django.utils import timezone
 from .models import VendorSubscription, SubscriptionTier
 from .serializers import (
     SubscriptionTierSerializer, VendorSubscriptionSerializer,
     UpgradeSubscriptionSerializer
 )
 from apps.equipment.models import Vendor
-from apps.equipment.serializers import VendorSerializer
 
 
 class SubscriptionTierListView(APIView):

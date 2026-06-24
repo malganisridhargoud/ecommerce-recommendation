@@ -8,13 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('equipment', '0007_reviewcomment'),
-        ('subscriptions', '__first__'),
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='equipment',
-            name='subscription',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='equipment', to='subscriptions.vendorsubscription'),
-        ),
     ]

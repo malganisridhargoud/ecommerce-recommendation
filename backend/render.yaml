@@ -1,41 +1,21 @@
 services:
   - type: web
-    name: taprent-backend
+    name: taprent-api
     env: python
     buildCommand: "./build.sh"
-    startCommand: "daphne -b 0.0.0.0 -p $PORT config.asgi:application"
+    startCommand: "gunicorn config.wsgi:application"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10.0
+        value: 3.11.0
+      - key: DATABASE_URL
+        value: sqlite:////var/data/db.sqlite3
+      - key: DEBUG
+        value: "False"
       - key: DJANGO_SECRET_KEY
         generateValue: true
-      - key: DEBUG
-        value: False
       - key: ALLOWED_HOSTS
         value: "*"
-      - key: CORS_ALLOWED_ORIGINS
-        sync: false
-      - key: DB_ENGINE
-        value: sqlite
-      - key: DB_SQLITE_PATH
-        value: /var/data/db.sqlite3
-      - key: DB_SSL
-        value: "False"
-      - key: STRIPE_SECRET_KEY
-        sync: false
-      - key: STRIPE_WEBHOOK_SECRET
-        sync: false
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: taprent-redis
-          property: connectionString
     disk:
-      name: taprent-data
+      name: taprent-sqlite-data
       mountPath: /var/data
       sizeGB: 1
-
-  - type: redis
-    name: taprent-redis
-    ipAllowList: []
-    plan: free

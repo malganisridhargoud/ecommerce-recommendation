@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-import dj_database_url
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,14 +45,12 @@ if not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ["localhost", "127.0.0.1"] if DEBUG else []
 
 INSTALLED_APPS = [
-    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "channels",
     "rest_framework",
     "corsheaders",
     "apps.users",
@@ -61,8 +58,6 @@ INSTALLED_APPS = [
     "apps.equipment",
     "apps.bookings",
     "apps.payments",
-    "apps.subscriptions",
-    "apps.communications",
 ]
 
 MIDDLEWARE = [
@@ -76,7 +71,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "apps.subscriptions.middleware.SubscriptionEnforcementMiddleware",
+
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -99,53 +94,27 @@ TEMPLATES = [
     }
 ]
 
+import dj_database_url
+
 _db_engine = os.getenv("DB_ENGINE", "sqlite").strip().lower()
 _db_url = os.getenv("DATABASE_URL", "").strip()
-_db_name = os.getenv("DB_NAME", "").strip()
-_db_ssl = os.getenv("DB_SSL", "False") == "True"
 _db_sqlite_path = resolve_sqlite_path(os.getenv("DB_SQLITE_PATH", "").strip())
 
-if _db_engine == "sqlite":
+if _db_url:
+    DATABASES = {
+        "default": dj_database_url.parse(_db_url, conn_max_age=600)
+    }
+else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": _db_sqlite_path,
         }
     }
-elif _db_url:
-    DATABASES = {
-        "default": dj_database_url.parse(
-            _db_url,
-            conn_max_age=600,
-            conn_health_checks=True,
-            ssl_require=_db_ssl,
-        )
-    }
-    if "mysql" in DATABASES["default"]["ENGINE"]:
-        DATABASES["default"]["OPTIONS"] = {
-            "charset": "utf8mb4",
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-            "connect_timeout": 10,
-        }
-        if _db_ssl:
-            DATABASES["default"]["OPTIONS"]["ssl"] = {"ssl_mode": "REQUIRED"}
-            if os.path.exists("/etc/ssl/certs/ca-certificates.crt"):
-                DATABASES["default"]["OPTIONS"]["ssl"]["ca"] = "/etc/ssl/certs/ca-certificates.crt"
-elif _db_name:
-    DATABASES = {"default": build_mysql_database(_db_name)}
-    if _db_ssl:
-        DATABASES["default"]["OPTIONS"]["ssl"] = {"ssl_mode": "VERIFY_IDENTITY"}
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "core.authentication.clerk_auth.ClerkAuthentication",
+        "core.authentication.clerk_auth.LenientClerkAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -241,16 +210,3 @@ SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0") or 0)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv("SECURE_HSTS_INCLUDE_SUBDOMAINS", "False") == "True"
 SECURE_HSTS_PRELOAD = os.getenv("SECURE_HSTS_PRELOAD", "False") == "True"
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-    }
-}
-
-if REDIS_URL:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": [REDIS_URL]},
-        }
-    }

@@ -1,7 +1,5 @@
 from django.http import JsonResponse
-from django.urls import resolve
 from apps.equipment.models import Vendor
-from .models import VendorSubscription
 
 class SubscriptionEnforcementMiddleware:
     """

@@ -37,8 +37,6 @@ export function setTokenGetter(fn) {
 }
 
 export async function getAccessToken() {
-  const adminToken = localStorage.getItem("admin_token");
-  if (adminToken) return adminToken;
   if (!getTokenFn) return "";
   try {
     return (await getTokenFn()) || "";
@@ -50,14 +48,7 @@ export async function getAccessToken() {
 apiClient.interceptors.request.use(async (config) => {
   if (config.__skipAuth) return config;
 
-  // First, check for our custom admin token
-  const adminToken = localStorage.getItem("admin_token");
-  if (adminToken) {
-    config.headers.Authorization = `Bearer ${adminToken}`;
-    return config;
-  }
-
-  // Fallback to Clerk
+  // Fetch Clerk token
   if (getTokenFn) {
     try {
       const token = await getTokenFn();
@@ -77,27 +68,22 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     const originalConfig = error.config || {};
 
-    // If we sent credentials but got a 401, we may be holding a stale/invalid token.
-    // Retry once without auth so public endpoints (like marketplace listings) still work.
-    if (
-      status === 401 &&
-      !originalConfig.__isRetry &&
-      originalConfig.headers?.Authorization
-    ) {
-      try {
-        localStorage.removeItem("admin_token");
-      } catch {
-        // ignore storage failures
-      }
-
+    // Retry any 401 once without auth headers.
+    // Covers two cases:
+    //   1. We sent a stale/invalid Clerk token → retry anonymously
+    //   2. Backend required auth but we were unauthenticated → let AllowAny endpoints work
+    if (status === 401 && !originalConfig.__isRetry) {
       originalConfig.__isRetry = true;
       originalConfig.__skipAuth = true;
+      // Clear any auth header that might have caused the 401
       try {
         delete originalConfig.headers.Authorization;
+        if (originalConfig.headers.authorization) delete originalConfig.headers.authorization;
       } catch {
         // ignore
       }
-
+      // If the retry also returns 401, it means auth is genuinely required
+      // — that error will fall through to the message builder below
       return apiClient.request(originalConfig);
     }
 
@@ -134,8 +120,7 @@ export const equipmentAPI = {
   buyerReviews: () => apiClient.get("/equipment/reviews/my/"),
   vendorReplyReview: (reviewId, vendorReply) =>
     apiClient.post(`/equipment/reviews/${reviewId}/reply/`, { vendor_reply: vendorReply }),
-  reviewComments: (reviewId) => apiClient.get(`/equipment/reviews/${reviewId}/comments/`),
-  addReviewComment: (reviewId, data) => apiClient.post(`/equipment/reviews/${reviewId}/comments/`, data),
+
   wishlist: () => apiClient.get("/equipment/wishlist/"),
   addToWishlist: (equipmentId) => apiClient.post("/equipment/wishlist/", { equipment_id: equipmentId }),
   removeFromWishlist: (equipmentId) => apiClient.delete(`/equipment/wishlist/${equipmentId}/`),
@@ -167,63 +152,24 @@ export const bookingsAPI = {
   reportIssue: (id, data) => apiClient.post(`/bookings/${id}/issue/`, data),
 };
 
-export const chatAPI = {
-  threads: () => apiClient.get("/chat/threads/"),
-  createThread: (equipmentId) => apiClient.post("/chat/threads/", { equipment_id: equipmentId }),
-  messages: (threadId) => apiClient.get(`/chat/threads/${threadId}/messages/`),
-  sendMessage: (threadId, data) => apiClient.post(`/chat/threads/${threadId}/messages/`, data),
-  faq: () => apiClient.get("/chat/faq/"),
-  askAssistant: (question) => apiClient.post("/chat/assistant/", { question }),
-};
-
 // ── Payments ────────────────────────────────────────────────────────────────
 export const paymentsAPI = {
   createIntent: (bookingId) => apiClient.post(`/payments/intent/${bookingId}/`),
   confirmIntent: (paymentIntentId) => apiClient.post("/payments/confirm/", { payment_intent_id: paymentIntentId }),
   createCheckout: () => apiClient.post("/payments/checkout/"),
   confirmSubscriptionSession: (sessionId) => apiClient.post("/payments/confirm-subscription-session/", { session_id: sessionId }),
-  payouts: () => apiClient.get("/payments/payouts/"),
-  bankAccount: () => apiClient.get("/payments/bank/"),
-  saveBankAccount: (data) => apiClient.post("/payments/bank/", data),
-  updateBankAccount: (data) => apiClient.put("/payments/bank/", data),
-  schedulePayout: () => apiClient.post("/payments/payouts/schedule/"),
-};
-export const subscriptionAPI = {
-  tiers: () => apiClient.get("/subscriptions/tiers/"),
-  me: () => apiClient.get("/subscriptions/me/"),
-  upgrade: (data) => apiClient.post("/subscriptions/upgrade/", data),
-  usage: () => apiClient.post("/subscriptions/usage/"),
-  cancel: () => apiClient.post("/subscriptions/cancel/"),
 };
 export const controlAPI = {
   equipment: (params) => apiClient.get("/control/equipment/", { params }),
   moderate: (id, data) => apiClient.post(`/control/equipment/${id}/moderate/`, data),
   vendors: (params) => apiClient.get("/control/vendors/", { params }),
-  kycApprove: (id, data) => apiClient.post(`/control/vendors/kyc/${id}/approve/`, data),
-  kycSubmit: (data) => apiClient.post("/control/vendors/kyc/submit/", data),
+
   userAction: (data) => apiClient.post("/control/users/action/", data),
 };
-export const disputeAPI = {
-  list: () => apiClient.get("/control/disputes/"),
-  create: (data) => apiClient.post("/control/disputes/", data),
-};
-export const supportAPI = {
-  tickets: () => apiClient.get("/control/support/tickets/"),
-  createTicket: (data) => apiClient.post("/control/support/tickets/", data),
-};
 
-// ── Recommendations ──────────────────────────────────────────────────────────
-export const recommendationsAPI = {
-  similar: (equipmentId) => apiClient.get(`/recommendations/similar/${equipmentId}/`),
-  forMe: () => apiClient.get("/recommendations/for-me/"),
-  train: () => apiClient.post("/recommendations/train/"),
-};
 
-// ── Analytics ────────────────────────────────────────────────────────────────
-export const analyticsAPI = {
-  vendor: () => apiClient.get("/analytics/vendor/"),
-  admin: () => apiClient.get("/analytics/admin/"),
-};
+
+
 
 // ── Vendor profile ────────────────────────────────────────────────────────────
 export const vendorAPI = {
@@ -240,8 +186,6 @@ export const usersAPI = {
   createAddress: (data) => apiClient.post("/users/addresses/", data),
   updateAddress: (id, data) => apiClient.patch(`/users/addresses/${id}/`, data),
   deleteAddress: (id) => apiClient.delete(`/users/addresses/${id}/`),
-  adminLogin: (data) => apiClient.post("/users/admin/login/", data),
-  list: () => apiClient.get("/control/vendors/"),
 };
 
 export default apiClient;

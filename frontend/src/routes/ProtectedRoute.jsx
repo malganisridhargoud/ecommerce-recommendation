@@ -8,20 +8,10 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
   const [roleLoaded, setRoleLoaded] = useState(false);
   const [role, setRole] = useState("");
 
-  const adminToken = localStorage.getItem("admin_token");
 
   useEffect(() => {
     let active = true;
     async function loadRole() {
-      // If we have an admin bypass token, skip Clerk role checks
-      if (adminToken && allowedRoles.includes("admin")) {
-        if (active) {
-          setRole("admin");
-          setRoleLoaded(true);
-        }
-        return;
-      }
-
       if (!isSignedIn) {
         if (active) {
           setRole("");
@@ -49,23 +39,16 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
     return () => {
       active = false;
     };
-  }, [isSignedIn, adminToken, allowedRoles]);
+  }, [isSignedIn, allowedRoles]);
 
   if (!isLoaded || (isSignedIn && !roleLoaded)) {
-    // Admin bypass loader suppression
-    if (adminToken && allowedRoles.includes("admin")) {
-      return <Outlet />;
-    }
+
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
+        <div style={{ width: 32, height: 32, border: "2px solid var(--border2)", borderTopColor: "var(--ink)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
-  }
-
-  // Admin JWT bypass completely overriding Clerk requirement blocks
-  if (adminToken && allowedRoles.includes("admin")) {
-    return <Outlet />;
   }
 
   if (!isSignedIn) {
@@ -73,7 +56,7 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-    return <Navigate to={role === "admin" ? "/admin" : role === "vendor" ? "/vendor" : "/buyer"} replace />;
+    return <Navigate to={role === "vendor" ? "/vendor" : "/buyer"} replace />;
   }
 
   return <Outlet />;

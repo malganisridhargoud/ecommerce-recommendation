@@ -9,8 +9,6 @@ from .serializers import BuyerAddressSerializer, UpdateRoleSerializer, UserProfi
 import hmac
 import hashlib
 import json
-import jwt as pyjwt
-from datetime import datetime, timedelta
 from django.conf import settings
 
 
@@ -262,52 +260,4 @@ class AddressDetailView(RetrieveUpdateDestroyAPIView):
         if serializer.validated_data.get("is_default"):
             BuyerAddress.objects.filter(user_id=self.request.user.id, is_default=True).exclude(id=self.get_object().id).update(is_default=False)
         serializer.save()
-
-
-class AdminLoginView(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        username = request.data.get("username", "").strip()
-        password = request.data.get("password", "")
-
-        expected_username = os.getenv("ADMIN_USERNAME", "admin")
-        expected_password = os.getenv("ADMIN_PASSWORD", "")
-
-        if not expected_password:
-            return Response({"error": "Admin credentials not configured on server."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        if username == expected_username and password == expected_password:
-            # Generate a custom JWT signed by Django's SECRET_KEY
-            payload = {
-                "sub": "admin_bypass_user",
-                "role": "admin",
-                "is_custom_admin": True,
-                "exp": datetime.utcnow() + timedelta(days=1)
-            }
-            token = pyjwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-            
-            # Ensure an admin profile exists for analytics foreign keys 
-            profile, _ = UserProfile.objects.get_or_create(
-                user_id="admin_bypass_user",
-                defaults={"role": UserRole.ADMIN, "full_name": "System Admin"}
-            )
-            if profile.role != UserRole.ADMIN:
-                profile.role = UserRole.ADMIN
-                profile.save(update_fields=["role"])
-
-            return Response({
-                "token": f"custom_admin_{token}",
-                "user": {"id": "admin_bypass_user", "role": "admin", "full_name": "System Admin"}
-            })
-
-        return Response({"error": "Invalid admin credentials."}, status=status.HTTP_401_UNAUTHORIZED)
-
-
-class UserListView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        # For admin, list all users. Since Clerk, return mock or empty.
-        return Response([])
 

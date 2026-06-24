@@ -1,13 +1,13 @@
 from rest_framework import serializers
 from django.db.models import Avg, Count
-from .models import Equipment, Vendor, Review, ReviewComment, WishlistItem, CartItem
+from .models import Equipment, Vendor, Review, WishlistItem, CartItem
 
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vendor
-        fields = ["id", "user_id", "company_name", "email", "phone", "subscription_active", "kyc_status", "created_at"]
-        read_only_fields = ["id", "user_id", "subscription_active", "kyc_status", "created_at"]
+        fields = ["id", "user_id", "company_name", "email", "phone", "subscription_active", "created_at"]
+        read_only_fields = ["id", "user_id", "subscription_active", "created_at"]
 
 
 class EquipmentSerializer(serializers.ModelSerializer):
@@ -65,34 +65,10 @@ class EquipmentCreateSerializer(serializers.ModelSerializer):
         ]
 
 
-class ReviewCommentSerializer(serializers.ModelSerializer):
-    commenter_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ReviewComment
-        fields = [
-            "id",
-            "review",
-            "user_id",
-            "commenter_name",
-            "parent",
-            "comment",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "review", "user_id", "commenter_name", "created_at", "updated_at"]
-
-    def get_commenter_name(self, obj):
-        from apps.users.models import UserProfile
-
-        profile = UserProfile.objects.filter(user_id=obj.user_id).only("full_name").first()
-        return profile.full_name if profile and profile.full_name else "User"
-
 
 class ReviewSerializer(serializers.ModelSerializer):
     reviewer_name = serializers.SerializerMethodField()
     equipment_detail = EquipmentSerializer(source="equipment", read_only=True)
-    comments = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -107,7 +83,6 @@ class ReviewSerializer(serializers.ModelSerializer):
             "comment",
             "vendor_reply",
             "vendor_reply_updated_at",
-            "comments",
             "created_at",
             "updated_at",
         ]
@@ -118,10 +93,6 @@ class ReviewSerializer(serializers.ModelSerializer):
 
         profile = UserProfile.objects.filter(user_id=obj.user_id).only("full_name").first()
         return profile.full_name if profile and profile.full_name else "Verified Buyer"
-
-    def get_comments(self, obj):
-        comments = obj.comments.select_related("parent").order_by("created_at")
-        return ReviewCommentSerializer(comments, many=True).data
 
 
 class WishlistItemSerializer(serializers.ModelSerializer):

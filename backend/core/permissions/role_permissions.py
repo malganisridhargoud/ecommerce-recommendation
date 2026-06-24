@@ -16,17 +16,6 @@ class IsVendor(BasePermission):
         return vendor.subscription_active
 
 
-class IsAdminUser(BasePermission):
-    """Allow access only to admin users."""
-
-    message = "Admin privileges required."
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        return request.user.is_admin
-
-
 class IsVendorOrAdmin(BasePermission):
     """Allow access to vendors or admins."""
 

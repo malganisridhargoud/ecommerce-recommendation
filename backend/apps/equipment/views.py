@@ -3,25 +3,20 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.conf import settings
 from django.db.models import F
 from django.db import models
 from django.core.cache import cache
 from django.core.signals import Signal
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
-from .models import Equipment, Vendor, Review, ReviewComment, WishlistItem, CartItem, ModerationStatus
+from .models import Equipment, Vendor, Review, WishlistItem, CartItem, ModerationStatus
 from .serializers import (
     EquipmentSerializer,
     EquipmentCreateSerializer,
-    VendorSerializer,
     ReviewSerializer,
-    ReviewCommentSerializer,
     WishlistItemSerializer,
     CartItemSerializer,
 )
 from apps.bookings.models import Booking, BookingStatus
-from core.subscriptions import ensure_vendor_can_list, vendor_subscription_required
+from core.subscriptions import ensure_vendor_can_list
 from core.authentication.clerk_auth import LenientClerkAuthentication
 
 
@@ -35,21 +30,6 @@ def equipment_list_cache_key(view, request):
 # Cache invalidation signal
 equipment_cache_invalidated = Signal()
 
-
-def broadcast_equipment_update(action, equipment_id, data=None):
-    """Broadcast equipment update to WebSocket group."""
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "equipment_updates",
-        {
-            "type": "equipment_update",
-            "action": action,
-            "equipment_id": equipment_id,
-            "data": data,
-        }
-    )
-
-
 class EquipmentListView(generics.ListAPIView):
     """Public endpoint: list all active equipment."""
     serializer_class = EquipmentSerializer
@@ -57,7 +37,7 @@ class EquipmentListView(generics.ListAPIView):
     authentication_classes = [LenientClerkAuthentication]
 
     def get_queryset(self):
-        from .models import ModerationStatus
+
         # Relaxed for demo: show all active equipment (ignore moderation_status)
         qs = Equipment.objects.filter(is_active=True).select_related("vendor")
         # if vendor_subscription_required():  # Commented for demo
@@ -129,7 +109,7 @@ class EquipmentDetailView(generics.RetrieveAPIView):
     authentication_classes = [LenientClerkAuthentication]
 
     def get_queryset(self):
-        from .models import ModerationStatus
+
         # Relaxed for demo: show all active equipment
         qs = Equipment.objects.filter(is_active=True).select_related("vendor")
         # if vendor_subscription_required():
@@ -183,11 +163,9 @@ class EquipmentCreateView(generics.CreateAPIView):
             defaults={"company_name": "New Vendor"},
         )
         ensure_vendor_can_list(vendor)
-        instance = serializer.save(vendor=vendor)
+        serializer.save(vendor=vendor)
         # Invalidate cache after creating new equipment
         invalidate_equipment_cache()
-        # Broadcast equipment creation
-        broadcast_equipment_update("created", instance.id, EquipmentSerializer(instance).data)
 
 
 class VendorEquipmentListView(generics.ListAPIView):
@@ -212,19 +190,14 @@ class EquipmentUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         instance = self.get_object()
         next_is_active = serializer.validated_data.get("is_active", instance.is_active)
-        if next_is_active:
+        if next_is_active and not instance.is_active:
             ensure_vendor_can_list(instance.vendor, action="publish equipment")
-        instance = serializer.save()
+        serializer.save()
         invalidate_equipment_cache()
-        # Broadcast equipment update
-        broadcast_equipment_update("updated", instance.id, EquipmentSerializer(instance).data)
 
     def perform_destroy(self, instance):
-        equipment_id = instance.id
         instance.delete()
         invalidate_equipment_cache()
-        # Broadcast equipment deletion
-        broadcast_equipment_update("deleted", equipment_id)
 
 
 class EquipmentReviewListCreateView(APIView):
@@ -246,7 +219,7 @@ class EquipmentReviewListCreateView(APIView):
         has_booking = Booking.objects.filter(
             equipment=equipment,
             user_id=request.user.id,
-            status__in=[BookingStatus.CONFIRMED, BookingStatus.ACTIVE, BookingStatus.COMPLETED],
+            status__in=[BookingStatus.CONFIRMED, BookingStatus.ACTIVE, BookingStatus.DELIVERED, BookingStatus.COMPLETED],
         ).exists()
         if not has_booking:
             return Response(
@@ -260,33 +233,6 @@ class EquipmentReviewListCreateView(APIView):
         serializer.save(equipment=equipment, user_id=request.user.id)
         return Response(serializer.data, status=status.HTTP_200_OK if review else status.HTTP_201_CREATED)
 
-
-class ReviewCommentListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, review_id):
-        review = get_object_or_404(Review, id=review_id)
-        comments = ReviewComment.objects.filter(review=review).order_by("created_at")
-        return Response(ReviewCommentSerializer(comments, many=True).data)
-
-    def post(self, request, review_id):
-        review = get_object_or_404(Review, id=review_id)
-        text = (request.data.get("comment") or "").strip()
-        if not text:
-            return Response({"error": "comment is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        parent_id = request.data.get("parent")
-        parent = None
-        if parent_id is not None:
-            parent = get_object_or_404(ReviewComment, id=parent_id, review=review)
-
-        comment = ReviewComment.objects.create(
-            review=review,
-            user_id=request.user.id,
-            parent=parent,
-            comment=text,
-        )
-        return Response(ReviewCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
 
 
 class VendorReviewListView(generics.ListAPIView):

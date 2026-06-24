@@ -11,7 +11,6 @@ from .views import (
     CartCheckoutConfirmView,
     BookingCompleteView,
     BookingIssueView,
-    DisputeListView,
 )
 
 urlpatterns = [
@@ -26,5 +25,4 @@ urlpatterns = [
     path("cart/confirm/", CartCheckoutConfirmView.as_view(), name="cart-confirm"),
     path("<int:pk>/complete/", BookingCompleteView.as_view(), name="booking-complete"),
     path("<int:pk>/issue/", BookingIssueView.as_view(), name="booking-issue"),
-    path("disputes/", DisputeListView.as_view(), name="dispute-list"),
 ]

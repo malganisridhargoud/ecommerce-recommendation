@@ -1,26 +1,15 @@
 import stripe
-from decimal import Decimal
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from django.utils import timezone
-from django.db import models as db_models
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Sum
 from apps.bookings.models import Booking, BookingStatus
-from apps.bookings.notifications import broadcast_booking_update
-from apps.equipment.models import Vendor
-from apps.equipment.serializers import VendorSerializer
-from .models import Payment, VendorBankAccount, Payout
-from .serializers import (
-    PaymentSerializer, VendorBankAccountSerializer, PayoutSerializer
-)
+from .models import Payment
+from .serializers import PaymentSerializer
 from core.subscriptions import deactivate_vendor_listings
-from core.permissions.role_permissions import IsVendorOrAdmin
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -157,13 +146,6 @@ class ConfirmPaymentView(APIView):
         if payment.status == Payment.Status.SUCCEEDED:
             booking.status = BookingStatus.ACTIVE
             booking.save(update_fields=["status"])
-            try:
-                broadcast_booking_update(booking, actor="buyer", event="booking.active")
-            except Exception as e:
-                # Log broadcast errors but don't fail the response
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Broadcast error for booking {booking.id}: {str(e)}")
 
         serializer = PaymentSerializer(payment)
         return Response(serializer.data)
@@ -241,11 +223,11 @@ class ConfirmVendorSubscriptionSessionView(APIView):
             return Response({"error": "This checkout session does not belong to the current vendor."}, status=status.HTTP_403_FORBIDDEN)
 
         subscription = stripe_attr(session, "subscription")
-        subscription_id = None
+        subscription_id = ""
         subscription_status = "unknown"
 
         if subscription:
-            subscription_id = stripe_attr(subscription, "id")
+            subscription_id = stripe_attr(subscription, "id") or ""
             subscription_status = stripe_attr(subscription, "status", "")
 
         session_status = stripe_attr(session, "status", "") or ""
@@ -297,8 +279,7 @@ class StripeWebhookView(APIView):
             self._handle_subscription_updated(event["data"]["object"])
         elif event_type == "customer.subscription.deleted":
             self._handle_subscription_deleted(event["data"]["object"])
-        elif event_type == "payout.created":
-            self._handle_payout_created(event["data"]["object"])
+
 
         return Response({"received": True})
 
@@ -321,13 +302,6 @@ class StripeWebhookView(APIView):
         if created or payment.status != Payment.Status.SUCCEEDED:
             booking.status = BookingStatus.ACTIVE
             booking.save(update_fields=["status"])
-            try:
-                broadcast_booking_update(booking, actor="system", event="booking.active")
-            except Exception as e:
-                # Log broadcast errors but don't fail
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Broadcast error for booking {booking.id}: {str(e)}")
 
     def _handle_subscription_updated(self, subscription):
         from apps.equipment.models import Vendor
@@ -346,140 +320,4 @@ class StripeWebhookView(APIView):
             vendor.save(update_fields=["subscription_active"])
             deactivate_vendor_listings(vendor)
 
-    def _handle_payout_created(self, payout):
-        payout_id = payout["id"]
-        vendor_id = payout["metadata"].get("vendor_id")
-        if not vendor_id:
-            return
-        vendor = Vendor.objects.filter(id=vendor_id).first()
-        if not vendor:
-            return
-        payout_obj, created = Payout.objects.update_or_create(
-            stripe_payout_id=payout_id,
-            defaults={
-                "vendor": vendor,
-                "amount": payout["amount"] / 100,
-                "currency": payout["currency"],
-                "status": Payout.Status.COMPLETED,
-            },
-        )
-
-
-# NEW Payout Views (Phase 1)
-class PayoutListView(APIView):
-    permission_classes = [IsVendorOrAdmin]
-
-    def get(self, request):
-        if request.user.is_admin:
-            payouts = Payout.objects.all().order_by('-initiated_at')
-        else:
-            vendor = get_object_or_404(Vendor, user_id=request.user.id)
-            payouts = Payout.objects.filter(vendor=vendor).order_by('-initiated_at')
-
-        serializer = PayoutSerializer(payouts, many=True)
-        return Response(serializer.data)
-
-
-class PayoutDetailView(APIView):
-    permission_classes = [IsVendorOrAdmin]
-
-    def get(self, request, pk):
-        vendor = None
-        if request.user.is_vendor:
-            vendor = get_object_or_404(Vendor, user_id=request.user.id)
-            payout = get_object_or_404(Payout, pk=pk, vendor=vendor)
-        else:
-            payout = get_object_or_404(Payout, pk=pk)
-        
-        serializer = PayoutSerializer(payout)
-        return Response(serializer.data)
-
-
-class SchedulePayoutView(APIView):
-    permission_classes = [IsVendorOrAdmin]
-
-    def post(self, request):
-        if request.user.is_vendor:
-            vendor = get_object_or_404(Vendor, user_id=request.user.id)
-        else:
-            vendor_id = request.data.get('vendor_id')
-            vendor = get_object_or_404(Vendor, id=vendor_id)
-
-        bank_account = vendor.bank_account
-        if not bank_account or bank_account.verification_status != VendorBankAccount.VerificationStatus.VERIFIED:
-            return Response({"error": "Vendor bank account not verified"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Calculate period payouts (last 30 days pending bookings)
-        end_date = timezone.now().date()
-        start_date = end_date - timezone.timedelta(days=30)
-
-        eligible_bookings = Booking.objects.filter(
-            equipment__vendor=vendor,
-            status__in=[BookingStatus.COMPLETED, BookingStatus.DELIVERED],
-            end_date__gte=start_date,
-            end_date__lte=end_date,
-        )
-
-        total_amount = eligible_bookings.aggregate(total=Sum('total_price'))['total'] or Decimal('0')
-        commission = total_amount * Decimal('0.10')
-        net_amount = total_amount - commission
-
-        if net_amount < 1:
-            return Response({"error": "No eligible payouts (minimum ₹1)"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            stripe.api_key = settings.STRIPE_SECRET_KEY
-            stripe_payout = stripe.Payout.create(
-                amount=int(net_amount * 100),
-                currency='inr',
-                destination=bank_account.stripe_connect_account_id,
-            )
-            
-            payout = Payout.objects.create(
-                vendor=vendor,
-                amount=total_amount,
-                net_amount=net_amount,
-                commission_amount=commission,
-                booking_count=eligible_bookings.count(),
-                period_start=start_date,
-                period_end=end_date,
-                stripe_payout_id=stripe_payout.id,
-            )
-            serializer = PayoutSerializer(payout)
-            return Response(serializer.data)
-        except stripe.error.StripeError as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class VendorBankAccountView(APIView):
-    permission_classes = [IsVendorOrAdmin]
-
-    def get(self, request):
-        vendor = get_object_or_404(Vendor, user_id=request.user.id)
-        try:
-            bank_account = vendor.bank_account
-            serializer = VendorBankAccountSerializer(bank_account)
-            return Response(serializer.data)
-        except VendorBankAccount.DoesNotExist:
-            return Response({"detail": "No bank account on file."}, status=status.HTTP_404_NOT_FOUND)
-
-    def post(self, request):
-        vendor = get_object_or_404(Vendor, user_id=request.user.id)
-        serializer = VendorBankAccountSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(vendor=vendor)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def put(self, request):
-        vendor = get_object_or_404(Vendor, user_id=request.user.id)
-        try:
-            bank_account = vendor.bank_account
-        except VendorBankAccount.DoesNotExist:
-            return Response({"error": "No bank account to update."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = VendorBankAccountSerializer(bank_account, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
