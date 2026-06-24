@@ -199,7 +199,8 @@ export default function BuyerDashboard() {
   const [savingProfile, setSavingProfile] = useState(false);
 
   // DERIVED STATE
-  const totalSpend = useMemo(() => bookings.reduce((s, b) => s + Number(b.total_price || 0), 0), [bookings]);
+  const completedBookings = useMemo(() => bookings.filter(b => b.status === "completed" || b.status === "delivered"), [bookings]);
+  const totalSpend = useMemo(() => completedBookings.reduce((s, b) => s + Number(b.total_price || 0), 0), [completedBookings]);
   const cartTotal  = useMemo(() => cartItems.reduce((s, i) => s + Number(i.subtotal || 0), 0), [cartItems]);
   const pendingOrders = bookings.filter(b => b.status === "pending").length;
   const selectedAddress = useMemo(
@@ -360,7 +361,7 @@ export default function BuyerDashboard() {
           <div className="d-flex gap-4 mt-4 mt-md-0 bg-white bg-opacity-10 p-3 rounded-3 backdrop-blur">
             <div className="text-center px-2">
               <div className="text-white-50 text-uppercase tracking-wider mb-1" style={{fontSize: '0.7rem'}}>Orders</div>
-              <div className="fs-3 fw-light">{bookings.length}</div>
+              <div className="fs-3 fw-light">{completedBookings.length}</div>
             </div>
             <div className="text-center border-start border-white border-opacity-25 px-2 ps-4">
               <div className="text-white-50 text-uppercase tracking-wider mb-1" style={{fontSize: '0.7rem'}}>Total Spend</div>

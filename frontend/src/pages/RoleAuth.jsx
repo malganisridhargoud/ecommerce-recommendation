@@ -92,14 +92,14 @@ export default function RoleAuth({ role }) {
           {!isSignedIn && (
             <div className="row g-2">
               <div className="col-6">
-                <SignInButton mode="modal">
+                <SignInButton mode="modal" forceRedirectUrl={window.location.href}>
                   <button className="btn w-100 btn-dark fw-medium text-sm d-flex align-items-center justify-content-center py-2 rounded-lg">
                     Sign In
                   </button>
                 </SignInButton>
               </div>
               <div className="col-6">
-                <SignUpButton mode="modal">
+                <SignUpButton mode="modal" forceRedirectUrl={window.location.href}>
                   <button className="btn w-100 btn-outline-secondary fw-medium text-sm d-flex align-items-center justify-content-center py-2 rounded-lg bg-surface">
                     Sign Up
                   </button>

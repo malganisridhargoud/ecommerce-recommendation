@@ -77,8 +77,9 @@ export default function VendorDashboard() {
   const [editingListing, setEditingListing] = useState(null);
 
   const stats = useMemo(() => {
-    const rev = bookings.reduce((s, b) => s + Number(b.total_price || 0), 0);
-    const count = bookings.length;
+    const completedBookings = bookings.filter(b => b.status === "completed" || b.status === "delivered");
+    const rev = completedBookings.reduce((s, b) => s + Number(b.total_price || 0), 0);
+    const count = completedBookings.length;
     return {
       revenue: rev,
       totalBookings: count,

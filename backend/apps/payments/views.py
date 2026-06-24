@@ -119,7 +119,13 @@ class ConfirmPaymentView(APIView):
         except stripe.error.StripeError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        booking_id = getattr(intent, "metadata", {}).get("booking_id") if hasattr(intent, "metadata") and getattr(intent, "metadata") else None
+        metadata = getattr(intent, "metadata", None)
+        if metadata is not None:
+            booking_id = getattr(metadata, "booking_id", None)
+            if booking_id is None and hasattr(metadata, "get"):
+                booking_id = metadata.get("booking_id")
+        else:
+            booking_id = None
         if not booking_id:
             return Response({"error": "Booking metadata missing from payment intent."}, status=status.HTTP_400_BAD_REQUEST)
 
