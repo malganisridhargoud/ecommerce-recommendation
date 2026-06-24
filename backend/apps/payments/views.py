@@ -119,13 +119,13 @@ class ConfirmPaymentView(APIView):
         except stripe.error.StripeError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        booking_id = intent.get("metadata", {}).get("booking_id")
+        booking_id = getattr(intent, "metadata", {}).get("booking_id") if hasattr(intent, "metadata") and getattr(intent, "metadata") else None
         if not booking_id:
             return Response({"error": "Booking metadata missing from payment intent."}, status=status.HTTP_400_BAD_REQUEST)
 
         booking = get_object_or_404(Booking, pk=booking_id, user_id=request.user.id)
 
-        payment_status = intent.get("status")
+        payment_status = getattr(intent, "status", None)
         status_map = {
             "succeeded": Payment.Status.SUCCEEDED,
             "requires_payment_method": Payment.Status.FAILED,
@@ -137,8 +137,8 @@ class ConfirmPaymentView(APIView):
             stripe_payment_intent_id=payment_intent_id,
             defaults={
                 "booking": booking,
-                "amount": intent.get("amount", 0) / 100,
-                "currency": intent.get("currency", settings.STRIPE_CURRENCY),
+                "amount": getattr(intent, "amount", 0) / 100,
+                "currency": getattr(intent, "currency", settings.STRIPE_CURRENCY),
                 "status": status_map.get(payment_status, Payment.Status.PENDING),
             },
         )
